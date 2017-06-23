@@ -15,3 +15,4 @@
 
 ## Update Logs
 
+* 0.0.1 support upload(normal and multipart) and delete

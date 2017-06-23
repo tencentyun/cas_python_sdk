@@ -21,7 +21,7 @@ log.setLevel(logging.DEBUG)
 # create casapi
 # need host, appid, accesskey, secretkey
 api = CASAPI('cas.ap-chengdu.myqcloud.com',   # host must be this region
-              # to be replaced
+              # to be replaced, use your own appid, accesskey, secretkey
              '1253870963', 'AKIDzqVxDHfaP6bx7Aog8SingOuLmAB3qQwO', 'PdfWBfze4YxYFoCOsGSSa2PCuTq1AB5n')
 print api
 print api.host, api.port, api.appid, api.ak, api.sk
