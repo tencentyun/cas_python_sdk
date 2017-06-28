@@ -12,6 +12,7 @@ from cas.cas_util import create_auth, append_param
 class CASAPI(object):
     DefaultSendBufferSize = 8192
     DefaultGetBufferSize = 1024 * 1024 * 10
+    DefaultAuthTimeout = 1200  # 1200 seconds
     provider = 'CAS'
 
     def __init__(self, host, appid, ak, sk, port=80, is_security=False):
@@ -158,7 +159,7 @@ class CASAPI(object):
             else:
                 raise Exception('Request error! ' + str(e))
 
-    def __create_auth(self, method, url, headers=None, params=None, expire=600):
+    def __create_auth(self, method, url, headers=None, params=None, expire=DefaultAuthTimeout):
         auth_value = create_auth(self.ak, self.sk, self.host, method, url, headers, params, expire)
         return auth_value
 
@@ -331,6 +332,7 @@ class CASAPI(object):
         # Content-Range:bytes 0-4194303/*
         # place range here !
         headers['Content-Range'] = 'bytes ' + prange + '/*'
+        #headers['Content-Range'] = prange
 
         sys.stdout.write('====== debug: post part from reader, url: %s, range, %s\n' % (url, prange))
 

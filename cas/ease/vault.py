@@ -11,7 +11,7 @@ from utils import *
 class Vault(object):
     _MEGABYTE = 1024 * 1024
 
-    NormalUploadThreshold = 32 * _MEGABYTE
+    NormalUploadThreshold = 16 * _MEGABYTE
 
     ResponseDataParser = (('CreationDate', 'creation_date', None),
                           ('LastInventoryDate', 'last_inventory_date', None),
@@ -64,17 +64,16 @@ class Vault(object):
         result = self.api.list_multipart_uploads(self.name)
         return [Uploader(self, data) for data in result['UploadsList']]
 
-    def list_all_jobs(self):
-        result = self.api.list_jobs(self.name)
-        return [Job(self, data) for data in result['JobList']]
-
     def delete(self):
         return self.api.delete_vault(self.name)
 
     def upload_archive(self, file_path, desc=None):
         length = os.path.getsize(file_path)
         if length > self.NormalUploadThreshold:
-            return self.initiate_uploader(file_path, desc=desc).start()
+            uploader = self.initiate_uploader(file_path, desc=desc)
+            print "====== start the multipart upload: ", uploader
+            archive_id = uploader.start()
+            return archive_id
         elif length > 0:
             return self._upload_archive_normal(file_path, desc=desc)
         else:

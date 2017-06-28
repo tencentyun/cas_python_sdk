@@ -43,17 +43,10 @@ print '====== normal upload, response archive id: ', archive_id
 res = vault.delete_archive(archive_id)
 print "====== delete just uploaded archive, response: ", res
 
-# multipart upload
+# auto multipart upload for file larger than 16M
 print '================================================='
-print "====== initial one multipart upload"
-uploader = vault.initiate_uploader('../pycharm.dmg')
-uploader_id = uploader.id
-print "====== uploader_id", uploader_id
-
-print "====== start the multipart upload"
-archive_id = uploader.start()
-print "====== multipart upload, response archive_id: ", archive_id
-
+archive_id = vault.upload_archive('../pycharm.dmg')
+print "====== multipart upload, response archive id: ", archive_id
 # delete archive
 res = vault.delete_archive(archive_id)
 print "====== delete just uploaded archive response: ", res

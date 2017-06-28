@@ -24,7 +24,7 @@ class Uploader(object):
     _MEGABYTE = 1024 * 1024
     _GIGABYTE = 1024 * _MEGABYTE
 
-    MinimumPartSize = 32 * _MEGABYTE
+    MinimumPartSize = 16 * _MEGABYTE
     MaximumNumberOfParts = 10000
     NumberThread = 6
     NumberRetry = 3

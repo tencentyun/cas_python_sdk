@@ -15,6 +15,7 @@ class CASServerError(Exception):
 
         self.request_id = headers.get('x-cas-requestid')
         self.status = response.status
+        sys.stdout.write('====== debug: error: receive status: %s\n' % response.status)
         sys.stdout.write('====== debug: error: receive headers: %s\n' % headers)
 
         content = ''
