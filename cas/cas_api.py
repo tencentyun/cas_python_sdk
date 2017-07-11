@@ -15,8 +15,8 @@ class CASAPI(object):
     DefaultAuthTimeout = 1200  # 1200 seconds
     provider = 'CAS'
 
-    def __init__(self, host, appid, ak, sk, port=80, is_security=False):
-        self.host = host
+    def __init__(self, endpoint, appid, ak, sk, port=80, is_security=False):
+        self.host = endpoint
         self.appid = appid
         self.ak = ak
         self.sk = sk
@@ -169,7 +169,7 @@ class CASAPI(object):
         res = self.__http_request(method, url)
         return res
 
-    def get_vault_desc(self, vault_name):
+    def desc_vault(self, vault_name):
         url = '/%s/vaults/%s' % (self.appid, vault_name)
         method = 'GET'
         return self.__http_request(method, url)
@@ -276,7 +276,7 @@ class CASAPI(object):
         res = self.__http_request(method, url, headers)
         return res
 
-    def delete_multipart_upload(self, vault_name, upload_id):
+    def abort_multipart_upload(self, vault_name, upload_id):
         '''
             delete multipart upload
         '''
@@ -352,13 +352,13 @@ class CASAPI(object):
         return self.__http_request(method, url, params=params)
 
     # todo
-    def create_job(self, vault_id, job_type, archive_id=None, desc=None, byte_range=None):
+    def create_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
         '''
             create job
             @param job_type: required, string, can only be archive-retrieval or inventory-retrieval
             @param archive_id: not required, string, when job_type is archive-retrieval , archive_id must be set
         '''
-        url = '/vaults/%s/jobs' % (vault_id)
+        url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'POST'
         body = dict()
         body['Type'] = job_type
@@ -366,33 +366,35 @@ class CASAPI(object):
             body['ArchiveId'] = archive_id
             if byte_range is not None:
                 body['RetrievalByteRange'] = byte_range
+            if tier is not None:
+                body['Tier'] = tier
         if desc is not None:
             body['Description'] = desc
         body = json.dumps(body)
         return self.__http_request(method, url, body=body)
 
-    def get_jobdesc(self, vault_id, job_id):
-        url = '/vaults/%s/jobs/%s' % (vault_id, job_id)
+    def get_jobdesc(self, vault_name, job_id):
+        url = '/%s/vaults/%s/jobs/%s' % (self.appid, vault_name, job_id)
         method = 'GET'
         return self.__http_request(method, url)
 
-    def fetch_job_output(self, vault_id, job_id, orange=None):
+    def fetch_job_output(self, vault_name, job_id, orange=None):
         '''
            fetch job output
            @param orange: not required , string, fetch byte range like bytes=0-1048575
         '''
-        url = '/vaults/%s/jobs/%s/output' % (vault_id, job_id)
+        url = '/%s/vaults/%s/jobs/%s/output' % (self.appid, vault_name, job_id)
         method = 'GET'
         headers = dict()
         if orange is not None:
             headers['Range'] = orange
         return self.__http_request(method, url, headers)
 
-    def list_job(self, vault_id, marker=None, limit=None):
+    def list_job(self, vault_name, marker=None, limit=None):
         '''
             fetch all jobs
         '''
-        url = '/vaults/%s/jobs' % (vault_id)
+        url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'GET'
         params = dict()
         if marker is not None:

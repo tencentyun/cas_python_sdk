@@ -51,7 +51,7 @@ class Uploader(object):
 
     @classmethod
     def calc_part_size(cls, size_total, part_size=MinimumPartSize):
-        if size_total > 4*10000 * cls._GIGABYTE:
+        if size_total > 4 * 10000 * cls._GIGABYTE:
             raise ValueError('File too big: %d' % size_total)
 
         if size_total < cls.MinimumPartSize:
@@ -70,12 +70,12 @@ class Uploader(object):
                 size_total / cls.MaximumNumberOfParts / cls._MEGABYTE)
             part_size_refer = int(part_size_refer * cls._MEGABYTE)
             part_bit_len = part_size_refer.bit_length() - 1
-            part_size = 1<< part_bit_len
+            part_size = 1 << part_bit_len
             while True:
                 if(part_size >= part_size_refer):
                     break
                 part_bit_len += 1
-                part_size = 1<< part_bit_len
+                part_size = 1 << part_bit_len
         return part_size
 
     @classmethod
@@ -182,7 +182,7 @@ class Uploader(object):
                 self.tree_hash)
             sys.stdout.write('====== debug: send complete part res: %s\n' % response)
             log.info('Upload %s finish.' % (self.id))
-            return response.get('m-cas-archive-id')
+            return response.get('x-cas-archive-id')
         except UploadArchiveError as e:
             errorinfo = 'upload %s failed, cause:%s' % (self.id, e)
             log.error(errorinfo)

@@ -44,14 +44,18 @@ def format_params(params=None):
         tmp_params[tmp_k] = str(v).lower()
     res = ''
     separator = '&'
-    for p in tmp_params.keys().sort():
-        res += urllib.quote(p)
-        v = len(tmp_params[p])
-        if len(v) != 0:
-            res += '='
-            res += urllib.quote(v)
-        res += separator
-    res = res.rstrip(separator)
+    check_params = tmp_params.keys()
+    check_params.sort()
+    if check_params is not None:
+        for p in check_params:
+            res += urllib.quote(p)
+            print p, tmp_params[p]
+            v = len(tmp_params[p])
+            if len(v) != 0:
+                res += '='
+                res += urllib.quote(v)
+            res += separator
+        res = res.rstrip(separator)
     return res
 
 
@@ -66,14 +70,15 @@ def format_headers(headers=None):
     separator = '&'
     check_headers = tmp_headers.keys()
     check_headers.sort()
-    for p in check_headers:
-        res += p
-        v = tmp_headers[p]
-        if len(v) != 0:
-            res += '='
-            res += urllib.quote(v)
-        res += separator
-    res = res.rstrip(separator)
+    if check_headers is not None:
+        for p in check_headers:
+            res += p
+            v = tmp_headers[p]
+            if len(v) != 0:
+                res += '='
+                res += urllib.quote(v)
+            res += separator
+        res = res.rstrip(separator)
     return res
 
 # qcloud signature algorithm !!!

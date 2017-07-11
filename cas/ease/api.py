@@ -14,21 +14,21 @@ class APIProxy(object):
 
     def __getattr__(self, name):
         methods = [
-            'create_vault', 'delete_vault', 'list_vault', 'get_vault_desc',
+            'create_vault', 'delete_vault', 'list_vault', 'desc_vault',
             'post_archive', 'post_archive_from_reader', 'delete_archive', 'head_archive',
 
             'create_multipart_upload', 'list_multipart_upload',
-            'complete_multipart_upload', 'delete_multipart_upload',
+            'complete_multipart_upload', 'abort_multipart_upload',
 
             'post_multipart', 'post_multipart_from_reader', 'list_multipart',
 
             'create_job', 'create_oss_transfer_job', 'get_jobdesc', 'fetch_job_output', 'list_job']
 
-        transform = {'describe_vault': 'get_vault_desc',
+        transform = {'describe_vault': 'desc_vault',
                      'describe_job': 'get_jobdesc',
                      'describe_multipart': 'list_multipart',
                      'initiate_multipart_upload': 'create_multipart_upload',
-                     'cancel_multipart_upload': 'delete_multipart_upload'}
+                     'cancel_multipart_upload': 'abort_multipart_upload'}
 
         if name in transform:
             name = transform[name]

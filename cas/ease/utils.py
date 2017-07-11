@@ -176,4 +176,4 @@ def compute_hash_from_file_obj(file_obj, offset=0, size=None,
         file_obj.seek(offset)
     else:
         target.close()
-    return ( etag.hexdigest(), generator.generate().digest())
+    return (etag.hexdigest(), generator.generate().digest())

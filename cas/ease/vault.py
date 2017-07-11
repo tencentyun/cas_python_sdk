@@ -4,6 +4,7 @@ import mmap
 import os
 
 from api import APIProxy
+from job import Job
 from uploader import Uploader
 from utils import *
 
@@ -11,7 +12,7 @@ from utils import *
 class Vault(object):
     _MEGABYTE = 1024 * 1024
 
-    NormalUploadThreshold = 16 * _MEGABYTE
+    NormalUploadThreshold = 100 * _MEGABYTE
 
     ResponseDataParser = (('CreationDate', 'creation_date', None),
                           ('LastInventoryDate', 'last_inventory_date', None),
@@ -116,4 +117,19 @@ class Vault(object):
     def delete_archive(self, archive_id):
         return self.api.delete_archive(self.name, archive_id)
 
-    # todo, download job
+    def get_job(self, job_id):
+        response = self.api.describe_job(self.name, job_id)
+        return Job(self, response)
+
+    def retrieve_archive(self, archive_id, desc=None, byte_range=None, tier=None):
+        byte_range_str = None
+        if byte_range is not None:
+            byte_range_str = '%d-%d' % byte_range
+        response = self.api.create_job(self.name, 'archive-retrieval', 
+                archive_id=archive_id, desc=desc,
+                byte_range=byte_range_str, tier=tier)
+        return self.get_job(response['x-cas-job-id'])
+
+    def retrieve_inventory(self, desc=None):
+        response = self.api.create_job(self.name, 'inventory-retrieval', desc=desc)
+        return self.get_job(response['x-cas-job-id'])
