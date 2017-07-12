@@ -49,11 +49,11 @@ def format_params(params=None):
     if check_params is not None:
         for p in check_params:
             res += urllib.quote(p)
-            print p, tmp_params[p]
+            # print p, tmp_params[p]
             v = len(tmp_params[p])
             if len(v) != 0:
                 res += '='
-                res += urllib.quote(v)
+                res += urllib.quote_plus(v, '~').replace('+', '%20')
             res += separator
         res = res.rstrip(separator)
     return res
@@ -76,7 +76,7 @@ def format_headers(headers=None):
             v = tmp_headers[p]
             if len(v) != 0:
                 res += '='
-                res += urllib.quote(v)
+                res += urllib.quote_plus(v, '~').replace('+', '%20')
             res += separator
         res = res.rstrip(separator)
     return res
