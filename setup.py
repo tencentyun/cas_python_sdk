@@ -16,16 +16,24 @@ if float('%d.%d' % sys.version_info[:2]) < 2.6 or float('%d.%d' % sys.version_in
     sys.stderr.write("CAS Python SDK requires Python between 2.6 and 3.0.\n")
     sys.exit(1)
 
+def requirements():
+    with open('requirements.txt', 'r') as fileobj:
+        requirements = [line.strip() for line in fileobj]
+
+def long_description():
+    with open('README.md', 'r') as fileobj:
+        return fileobj.read()
+
+
 setup(
     name='cassdk',
     version='0.0.1',
     description='Python SDK for Tencent CAS (Cloud Archive Service)',
     author='Tencent CAS',
-    url='http://www.qcloud.com/',
+    url='https://www.qcloud.com/',
     packages=['cas', 'cas.ease'],
     license='MIT License',
-    install_requires=[
-        'pyaml',
-        'ordereddict',
-    ],
+    long_description=long_description(),
+    install_requires=requirements(),
+    scripts=['cascmd.py'],
 )
