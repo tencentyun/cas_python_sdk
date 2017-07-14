@@ -116,6 +116,9 @@ class CASCMD(object):
             return self.cmd_delete_vault(args)
         return self.cmd_delete_archive(args)
 
+    def cmd_upload_archive(self, args):
+        return self.cmd_upload(args)
+
     def cmd_upload(self, args):
         if not args.local_file or not os.path.isfile(args.local_file):
             sys.stderr.write("Error: file '%s' not existed\n" % args.local_file)
