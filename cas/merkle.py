@@ -1,6 +1,4 @@
 import hashlib
-import mmap
-import os
 import binascii
 
 class MerkleTree(object):

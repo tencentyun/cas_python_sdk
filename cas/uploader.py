@@ -13,9 +13,9 @@ except ImportError:
     from ordereddict import OrderedDict
 from multiprocessing.pool import ThreadPool
 
-from exceptions import *
-from merkle import *
-from utils import *
+from cas.exceptions import *
+from cas.merkle import *
+from cas.Utils.FileUtils import *
 
 log = logging.getLogger(__name__)
 

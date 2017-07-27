@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import time
-from hashlib import sha1 as sha
 import hmac
 import urllib
 from datetime import tzinfo, timedelta

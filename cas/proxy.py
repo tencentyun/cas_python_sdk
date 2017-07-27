@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from cas.cas_api import CASAPI
+from cas.client import CASClient
+from cas.response import CASResponse
 
-from exceptions import CASServerError
-from response import CASResponse
-from utils import *
+from cas.exceptions import CASServerError
+from cas.Utils.FileUtils import *
 
+class CASProxy(object):
 
-class APIProxy(object):
-
-    def __init__(self, api):
-        self.api = api
+    def __init__(self, client):
+        self.client = client
 
     def __getattr__(self, name):
         methods = [
@@ -20,13 +19,13 @@ class APIProxy(object):
             'create_multipart_upload', 'list_multipart_upload',
             'complete_multipart_upload', 'abort_multipart_upload',
 
-            'post_multipart', 'post_multipart_from_reader', 'list_multipart',
+            'post_multipart', 'post_multipart_from_reader', 'list_parts',
 
-            'create_job', 'create_oss_transfer_job', 'get_jobdesc', 'fetch_job_output', 'list_job']
+            'create_job', 'get_job_desc', 'fetch_job_output', 'list_job']
 
         transform = {'describe_vault': 'desc_vault',
-                     'describe_job': 'get_jobdesc',
-                     'describe_multipart': 'list_multipart',
+                     'describe_job': 'get_job_desc',
+                     'describe_multipart': 'list_parts',
                      'initiate_multipart_upload': 'create_multipart_upload',
                      'cancel_multipart_upload': 'abort_multipart_upload'}
 
@@ -38,7 +37,7 @@ class APIProxy(object):
 
         def wrapped(*args, **kwargs):
             try:
-                func = CASAPI.__getattribute__(self.api, name)
+                func = CASClient.__getattribute__(self.client, name)
                 res = func(*args, **kwargs)
             except Exception as e:
                 raise IOError(str(e))

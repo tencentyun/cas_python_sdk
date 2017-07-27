@@ -1,15 +1,15 @@
 # -*- coding=UTF-8 -*-
 
-import json
 import httplib
+import json
 import socket
 import string
 import sys
 import time
 
-from cas.cas_util import create_auth, append_param
+from cas.Utils import HttpUtils
 
-class CASAPI(object):
+class CASClient(object):
     DefaultSendBufferSize = 8192
     DefaultGetBufferSize = 1024 * 1024 * 10
     DefaultAuthTimeout = 1200  # 1200 seconds
@@ -26,9 +26,9 @@ class CASAPI(object):
     def __get_connection(self):
         if self.is_security or self.port == 443:
             self.is_security = True
-            return httplib.HTTPSConnection(host=self.host, port=self.port, timeout=100)
+            return httplib.HTTPSConnection(self.host, self.port, timeout=100)
         else:
-            return httplib.HTTPConnection(host=self.host, port=self.port, timeout=100)
+            return httplib.HTTPConnection(self.host, self.port, timeout=100)
 
     def __http_request(self, method, url, headers=None, body='', params=None):
         headers = headers or dict()
@@ -41,7 +41,7 @@ class CASAPI(object):
         headers['User-Agent'] = 'CAS Python SDK'
 
         if params is not None:
-            url = append_param(url, params)
+            url = HttpUtils.append_param(url, params)
         # print '=== debug: send headers: ', headers
         # print '=== debug: send url: ', url
         conn = self.__get_connection()
@@ -160,7 +160,7 @@ class CASAPI(object):
                 raise Exception('Request error! ' + str(e))
 
     def __create_auth(self, method, url, headers=None, params=None, expire=DefaultAuthTimeout):
-        auth_value = create_auth(self.ak, self.sk, self.host, method, url, headers, params, expire)
+        auth_value = HttpUtils.create_auth(self.ak, self.sk, self.host, method, url, headers, params, expire)
         return auth_value
 
     def create_vault(self, vault_name):
@@ -180,10 +180,11 @@ class CASAPI(object):
         return self.__http_request(method, url)
 
     def list_vault(self, marker=None, limit=None):
-        '''
+        """
             @param marker: not required , string, marker of start
             @param limit:  not required , int, retrive size
-        '''
+        """
+
         url = '/%s/vaults' % self.appid
         method = 'GET'
         params = dict()
@@ -287,15 +288,15 @@ class CASAPI(object):
         return res
 
     def post_multipart(self, vault_name, upload_id, content, prange, etag, tree_etag):
-        '''
+        """
             post content to cas as multipart
 
             @param content:required, string, upload data content
             @param prange: required, string, upload data range eg: 0-67108863
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'PUT'
-        headers = {}
+        headers = dict()
         headers['Host'] = self.host
         headers['Content-Length'] = len(content)
         headers['x-cas-content-sha256'] = etag
@@ -338,7 +339,7 @@ class CASAPI(object):
 
         return self.__http_reader_request(method, url, headers, reader, content_length)
 
-    def list_multipart(self, vault_name, upload_id, marker=None, limit=None):
+    def list_parts(self, vault_name, upload_id, marker=None, limit=None):
         '''
             list all multiparts belong to one upload
         '''
@@ -353,11 +354,11 @@ class CASAPI(object):
 
     # todo
     def create_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
-        '''
+        """
             create job
             @param job_type: required, string, can only be archive-retrieval or inventory-retrieval
             @param archive_id: not required, string, when job_type is archive-retrieval , archive_id must be set
-        '''
+        """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'POST'
         body = dict()
@@ -373,16 +374,16 @@ class CASAPI(object):
         body = json.dumps(body)
         return self.__http_request(method, url, body=body)
 
-    def get_jobdesc(self, vault_name, job_id):
+    def get_job_desc(self, vault_name, job_id):
         url = '/%s/vaults/%s/jobs/%s' % (self.appid, vault_name, job_id)
         method = 'GET'
         return self.__http_request(method, url)
 
     def fetch_job_output(self, vault_name, job_id, orange=None):
-        '''
-           fetch job output
+        """
+           get job output
            @param orange: not required , string, fetch byte range like bytes=0-1048575
-        '''
+        """
         url = '/%s/vaults/%s/jobs/%s/output' % (self.appid, vault_name, job_id)
         method = 'GET'
         headers = dict()
@@ -391,9 +392,9 @@ class CASAPI(object):
         return self.__http_request(method, url, headers)
 
     def list_job(self, vault_name, marker=None, limit=None):
-        '''
+        """
             fetch all jobs
-        '''
+        """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'GET'
         params = dict()

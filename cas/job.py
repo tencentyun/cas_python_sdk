@@ -1,25 +1,25 @@
 #!/usr/bin/env python2.7
 # -*- coding=UTF-8 -*-
 
+import binascii
 import logging
 import random
 import threading
-import binascii
 import time
+
 import yaml
+
+from cas.Utils.FileUtils import *
+
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
 from multiprocessing.pool import ThreadPool
 
-from exceptions import *
-from merkle import MerkleTree, TreeHashGenerator
-from utils import *
-
+from cas.exceptions import *
 
 log = logging.getLogger(__name__)
-
 
 class Job(object):
     _MEGABYTE = 1024 * 1024
@@ -113,7 +113,7 @@ class Job(object):
 
     def download_by_range(self, byte_range, file_path=None, file_obj=None,
                           chunk_size=None, block=True):
-        if self.action == "PullFromOSS" or self.action == "PushToOSS":
+        if self.action == "PullFromCOS" or self.action == "PushToCOS":
             raise DownloadArchiveError('Job not ready')
 
         self._check_status(block)

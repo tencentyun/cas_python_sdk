@@ -6,8 +6,8 @@ import math
 import mmap
 import os
 
-from merkle import TreeHashGenerator
-from merkle import MerkleTree
+from cas.merkle import MerkleTree
+from cas.merkle import TreeHashGenerator
 
 
 def is_file_like(obj):

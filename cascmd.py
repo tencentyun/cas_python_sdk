@@ -5,13 +5,12 @@ import ConfigParser
 import os
 import sys
 import time
-
-from collections import namedtuple
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from collections import namedtuple
 
-from cas.cas_ops import CASCMD
-from cas.cas_ops import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_CONFIGFILE
-from cas.cas_ops import CONFIGSECTION
+from cas.cas_cmd.cas_ops import CASCMD
+from cas.cas_cmd.cas_ops import CONFIGSECTION
+from cas.cas_cmd.cas_ops import DEFAULT_CONFIGFILE
 
 HELP_INFO = \
     '''Usage: cascmd <action> [<args>]:
@@ -64,7 +63,7 @@ AuthInfo = namedtuple(
 def build_authinfo(args):
     try:
         (endpoint, appid, secretid, secretkey) = (args.endpoint, args.appid, args.secretid, args.secretkey)
-        if not (endpoint and appid and secretid and accesskey):
+        if not (endpoint and appid and secretid and secretid):
             config = ConfigParser.ConfigParser()
             cfgfile = args.config_file or DEFAULT_CONFIGFILE
             config.read(cfgfile)

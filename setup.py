@@ -31,7 +31,7 @@ setup(
     description='Python SDK for Tencent CAS (Cloud Archive Service)',
     author='Tencent CAS',
     url='https://www.qcloud.com/',
-    packages=['cas', 'cas.ease'],
+    packages=['cas', 'cas.cas_api'],
     license='MIT License',
     long_description=long_description(),
     install_requires=requirements(),

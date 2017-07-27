@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import mmap
-import os
-
-from api import APIProxy
+from cas.proxy import CASProxy
 from job import Job
 from uploader import Uploader
-from utils import *
-
+from Utils.FileUtils import *
 
 class Vault(object):
     _MEGABYTE = 1024 * 1024
@@ -21,8 +17,8 @@ class Vault(object):
                           ('VaultQCS', 'qcs', None),
                           ('VaultName', 'name', None))
 
-    def __init__(self, api, response):
-        self.api = api
+    def __init__(self, client, response):
+        self.api = client
         for response_name, attr_name, default in self.ResponseDataParser:
             value = response.get(response_name)
             setattr(self, attr_name, value or default)
@@ -31,8 +27,8 @@ class Vault(object):
         return 'Vault: %s' % self.name
 
     @classmethod
-    def create_vault(cls, api, name):
-        api = APIProxy(api)
+    def create_vault(cls, client, name):
+        api = CASProxy(client)
         response = api.create_vault(name)
         # print '=== debug: create vault response: ', response
         response = api.describe_vault(name)
@@ -40,24 +36,24 @@ class Vault(object):
         return Vault(api, response)
 
     @classmethod
-    def get_vault_by_name(cls, api, vault_name):
-        vaults = cls.list_all_vaults(api)
+    def get_vault_by_name(cls, client, vault_name):
+        vaults = cls.list_all_vaults(client)
         for vault in vaults:
             if vault_name == vault.name:
                 return vault
         raise ValueError('Vault not exists: %s' % vault_name)
 
     @classmethod
-    def delete_vault_by_name(cls, api, vault_name):
-        vaults = cls.list_all_vaults(api)
+    def delete_vault_by_name(cls, client, vault_name):
+        vaults = cls.list_all_vaults(client)
         for vault in vaults:
             if vault_name == vault.name:
                 return vault.delete()
         raise ValueError('Vault not exists: %s' % vault_name)
 
     @classmethod
-    def list_all_vaults(cls, api):
-        api = APIProxy(api)
+    def list_all_vaults(cls, client):
+        api = CASProxy(client)
         result = api.list_vaults()
         return [Vault(api, data) for data in result['VaultList']]
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env python2.7
 # -*- coding=UTF-8 -*-
 
-from logging import getLogger, basicConfig, DEBUG
+import sys
+import os
+
 from logging.config import dictConfig
 
-from cas.cas_api import CASAPI
-from cas.ease.vault import Vault
-from cas.ease.uploader import *
-from cas.ease.job import Job
+from cas.client import CASClient
+from cas.vault import Vault
 
 log_config = {
     'version': 1,
@@ -55,71 +55,73 @@ log_config = {
 
 dictConfig(log_config)
 
-# create casapi
-# need host, appid, accesskey, secretkey
-api = CASAPI('cas.ap-chengdu.myqcloud.com',   # host must be this region
-              # to be replaced, use your own appid, accesskey, secretkey
-             '1251668577', 'AKIDrbAYjEBqqdEconpFi8NPFsOjrnX4LYUE',
-             'gCYjhT4ThiXAbp4aw65sTs56vY2Kcooc')
-print api
-print api.host, api.port, api.appid, api.ak, api.sk
-print '================================================='
+def Usage():
+    print "Usage: python ./example <host> <appid> <AccessKey> <SecretKey> "
 
-# create vault
-# vault = Vault.create_vault(api, 'sdktest222')
-# print '====== create vault, response: name: %s, qcs: %s' % (vault.name, vault.qcs)
+TEST_VAULT_NAME = "sdk_test"
+TEST_NORMAL_FILE = "test-1M.dat"        # Used to test the upload operation for the normal file
+TEST_LARGE_FILE = "test-101M.dat"      # Used to test  the multipart uploads for the large file
 
-# get vault by name, if vault already exists
-vault = Vault.get_vault_by_name(api, 'sdktest222')
-print '====== get vault, response: name: %s, qcs: %s' % (vault.name, vault.qcs)
+if __name__ == "__main__":
+    if len(sys.argv) != 5:
+        Usage()
+        exit(0)
 
-# upload normal file
-#print '================================================='
-#archive_id = vault.upload_archive('../len8M.txt')
-#print '====== normal upload, response archive id: ', archive_id
-#
-## delete archive
-#res = vault.delete_archive(archive_id)
-#print "====== delete just uploaded archive, response: ", res
-#
-# auto multipart upload for file larger than 100M
-#print '================================================='
-#archive_id = vault.upload_archive('../len110M.txt')
-#print "====== multipart upload, response archive id: ", archive_id
-# create retrieval archive job
-print '================================================='
-archive_id='rEXGTl2xkYWrUDFxpWYpg56__PVD-ne6YEPftWm4ZotDfP6fQmBf8-ZdX_5Bhutl0Sm7CUfILOD6lRL2-mu-fUIIdfuhCBOXjjs1EkYra9t5xoMMqxUvX_3jEOnB7Udf'
-# tier可用的值是Expedited, Standard, Bulk
-#archive_job = vault.retrieve_archive(archive_id, desc='python sdk test', tier='Expedited')
-#print "====== retrieve_archive, response job id: ", archive_job.id
-# desc archive job job
-archive_job = vault.get_job('PxKAOsM028F6wEw3p9YoI4DyBHDdwxuk9vWg9aQDUTZArm1gGlvURorXjA7w6TaA')
-print '======= retrieve_archive job status_code: %s, status_msg: %s, tier: %s' % \
-        (archive_job.status_code, archive_job.status_message, archive_job.tier)
+    host = sys.argv[1]
+    appid = sys.argv[2]
+    access_key = sys.argv[3]
+    secret_key = sys.argv[4]
 
-print '======= retrieve_archive job create_date: %s, complete_date: %s' % \
-        (archive_job.creation_date, archive_job.completion_date)
+    os.system("dd if=/dev/zero of=" + TEST_NORMAL_FILE + " bs=1M count=1 ")
+    os.system("dd if=/dev/zero of=" + TEST_LARGE_FILE + " bs=101M count=1 ")
 
-#file_path='./mysdk_down.txt'
-#archive_job.download_to_file(file_path)
+    # Create a client for accessing CAS
+    # 创建一个CAS客户端，用于访问CAS服务
+    client = CASClient(host,appid,access_key,secret_key)
 
-file_path='./mysdk_down_part.txt'
-archive_job.download_by_range((0, 110), file_path)
+    # List all vaults
+    # 获取当前的vault列表
+    vault_list = Vault.list_all_vaults(client)
+    print "====== vault list: \n", vault_list
 
+    # Create vault
+    # 创建vault
+    vault = Vault.create_vault(client,TEST_VAULT_NAME)
+    print "====== create vault, response:name :%s, qcs:%s\n" % (vault.name,vault.qcs)
 
-## delete archive
-#res = vault.delete_archive(archive_id)
-#print "====== delete just uploaded archive response: ", res
+    # Get a vault by its name, if vault already exists
+    # 根据名称获取vault对象
+    vault = Vault.get_vault_by_name(client,TEST_VAULT_NAME)
+    print "====== get vault, response: name: %s, qcs: %s\n" % (vault.name, vault.qcs)
 
+    # Upload a normal file.   size: 1MB
+    # 上传小于100MB的普通文件
+    archive_id_0 = vault.upload_archive(TEST_NORMAL_FILE)
+    print "====== upload a normal archive,response archive id: \n" , archive_id_0
 
-# create vault inventory job
-#print '================================================='
-#job_id = vault.retrieve_inventory('chengwu_inventory_test')
-#print "====== retrieve_inventory, response job id: ", job_id
+    # 获取Archive列表，以job形式运行，检索结果输出到inventory.out
+#    retrieve_job = vault.retrieve_inventory()
+#    retrieve_job.download_to_file("inventory.out")
 
-# desc inventory job job
-#job = vault.get_job(job_id)
-#print '======= retrieve_inventory job status_code: %s, status_msg: %s ' % (job.status_code, job.status_message)
+    # 下载Archive，以job形式运行，检索到archive下载到指定路径的文件中
+    # 可以在对tier参数指定检索类型： Expedited: 1--5分钟（最大支持256MB的文件）；Standard: 3--5小时； Bulk：5--12小时
+#    archive_job = vault.retrieve_archive(archive_id_0,tier = "[Expedited / Standard / Bulk")
+#    archive_job.download_to_file("[FilePath]")
 
+    # 通过multipart任务上传大文件
+    uploader = vault.initiate_uploader(TEST_LARGE_FILE)
+    archive_id_1 = uploader.start()
 
+    # 断点续传multipart任务
+#    uploader = vault.recover_uploader("[Upload ID]")
+#    uploader.resume(TEST_LARGE_FILE)
 
+    # Delete the specified archive
+    resp = vault.delete_archive(archive_id_0)
+    print "====== delete archive_id: %s, response:%s \n" % (archive_id_0,resp)
+    resp = vault.delete_archive(archive_id_1)
+    print "====== delete archive_id: %s, response:%s \n" % (archive_id_1,resp)
+
+    # delete the vault
+    resp = vault.delete()
+    print "====== delete itself, response; \n" , (resp)

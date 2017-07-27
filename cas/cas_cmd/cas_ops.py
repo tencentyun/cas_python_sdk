@@ -1,34 +1,12 @@
 # -*- coding=UTF-8 -*-
-# Copyright (C) 2011  Alibaba Cloud Computing
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-# 02110-1301, USA.
-#
-import datetime
-import json
-import os
-import sys
-import time
-import hashlib
-import binascii
-from collections import namedtuple
-import ConfigParser
 
-from cas_api import CASAPI
-from cas_util import UTC
-from cas.ease.utils import *
+import binascii
+import json
+import sys
+from collections import namedtuple
+
+from cas.client import CASClient
+from cas.Utils.FileUtils import *
 
 CAS_PREFIX = 'cas://'
 DEFAULT_HOST = 'cas.ap-chengdu.myqcloud.com'
@@ -64,8 +42,8 @@ def parse_vault_name(path):
 class CASCMD(object):
 
     def __init__(self, auth_info):
-        self.api = CASAPI(auth_info.endpoint, auth_info.appid,
-                auth_info.secretid, auth_info.secretkey)
+        self.api = CASClient(auth_info.endpoint, auth_info.appid,
+                       auth_info.secretid, auth_info.secretkey)
 
     def byte_humanize(self, byte):
         if byte == None: return ''
@@ -137,7 +115,7 @@ class CASCMD(object):
             if not args.upload_id:
                 partsize = self.parse_size(args.part_size)
                 if partsize:
-                    if partsize % (DEFAULT_NORMAL_UPLOAD_THRESHOLD) != 0:
+                    if partsize % (RECOMMOND_MIN_PART_SIZE) != 0:
                         sys.stderr.write('Error: partsize must be divided by 16MB!\n')
                         sys.exit(1)
                     if partsize * MAX_PART_NUM < size:
@@ -373,8 +351,20 @@ class CASCMD(object):
             sys.exit(1)
 
         totalsize = os.path.getsize(filepath)
-        end = args.end
+        if totalsize == 0:
+            sys.stderr.write("empty file can not be uploaded!")
+            sys.exit(1)
+        end = self.parse_size(args.end)
         size = long(end) - long(start) + 1
+        if start < 0 or start >= totalsize:
+            sys.stderr.write("start is invalid, legal value [0,%d] !\n" % (totalsize-1))
+            sys.exit(1)
+        if end < 0 or end >= totalsize:
+            sys.stderr.write("end is invalid, legal value [0, %d] !\n" (totalsize - 1))
+            sys.exit(1)
+        if start >= end:
+            sys.stderr.write("start must less than end")
+            sys.exit(1)
         etag = args.etag.upper() if args.etag else None
         tree_etag = args.tree_etag.upper() if args.tree_etag else None
         if not (etag and tree_etag):
@@ -451,7 +441,7 @@ class CASCMD(object):
     def cmd_desc_job(self, args):
         vault_name = parse_vault_name(args.vault)
         job_id = args.jobid
-        res = self.api.get_jobdesc(vault_name, job_id)
+        res = self.api.get_job_desc(vault_name, job_id)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
 
@@ -470,7 +460,7 @@ class CASCMD(object):
         start = self.parse_size(args.start)
         size = self.parse_size(args.size)
 
-        res = self.api.get_jobdesc(vault_name, args.jobid)
+        res = self.api.get_job_desc(vault_name, args.jobid)
         check_response(res)
         job = json.loads(res.read(), 'UTF8')
         status = job['StatusCode'].lower()
