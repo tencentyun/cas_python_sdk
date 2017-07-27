@@ -100,20 +100,21 @@ if __name__ == "__main__":
     print "====== upload a normal archive,response archive id: \n" , archive_id_0
 
     # 获取Archive列表，以job形式运行，检索结果输出到inventory.out
-#    retrieve_job = vault.retrieve_inventory()
-#    retrieve_job.download_to_file("inventory.out")
+#    inventory_job = vault.retrieve_inventory()
+#    inventory_job.download_to_file("inventory.out")
 
     # 下载Archive，以job形式运行，检索到archive下载到指定路径的文件中
     # 可以在对tier参数指定检索类型： Expedited: 1--5分钟（最大支持256MB的文件）；Standard: 3--5小时； Bulk：5--12小时
-#    archive_job = vault.retrieve_archive(archive_id_0,tier = "[Expedited / Standard / Bulk")
-#    archive_job.download_to_file("[FilePath]")
+#    archive_job = vault.retrieve_archive(archive_id_0,tier = "Expedited")
+#    archive_job.download_to_file("FilePath")
 
-    # 通过multipart任务上传大文件
+    # 通过multipart任务上传大于100MB的文件
     uploader = vault.initiate_uploader(TEST_LARGE_FILE)
     archive_id_1 = uploader.start()
 
-    # 断点续传multipart任务
-#    uploader = vault.recover_uploader("[Upload ID]")
+    # 如果上述multipart任务上传失败，则可以使用下列方法进行断点续传，
+    # 其中recover_uploader方法的参数，是待续传的uploader对象的ID
+#    uploader = vault.recover_uploader(uploader.id)
 #    uploader.resume(TEST_LARGE_FILE)
 
     # Delete the specified archive
