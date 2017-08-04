@@ -2,10 +2,11 @@
 
 from __future__ import division
 
+import sys
 import logging
 import random
 import time
-import sys
+import cas.conf.common_conf
 
 try:
     from collections import OrderedDict
@@ -13,36 +14,38 @@ except ImportError:
     from ordereddict import OrderedDict
 from multiprocessing.pool import ThreadPool
 
-from cas.exceptions import *
-from cas.merkle import *
-from cas.Utils.FileUtils import *
+from cas.utils.merkle import *
+from cas.utils.file_utils import *
+from cas.conf.common_conf import MEGABYTE
+from cas.conf.common_conf import GIGABYTE
+from cas.conf import multi_task_conf
+from cas.exceptions.cas_server_error import CASServerError
+from cas.exceptions.cas_client_error import UploadArchiveError
+from cas.exceptions.cas_client_error import HashDoesNotMatchError
 
 log = logging.getLogger(__name__)
 
 
-class Uploader(object):
-    _MEGABYTE = 1024 * 1024
-    _GIGABYTE = 1024 * _MEGABYTE
+class MultipartUpload(object):
 
-    MinimumPartSize = 16 * _MEGABYTE
-    MaximumNumberOfParts = 10000
-    NumberThread = 6
-    NumberRetry = 3
+    _MinimumPartSize = cas.conf.common_conf.MultipartUpload_MinimumPartSize
+    _MaximumNumberOfParts = cas.conf.common_conf.Multipart_Upload_MaximumNumberOfParts
+    _NumberThread = multi_task_conf.MultipartUpload_NumberThread
+    _NumberRetry = multi_task_conf.MultipartUpload_NumberRetry
 
     ResponseDataParser = (('ArchiveDescription', 'description', None),
                           ('CreationDate', 'creation_date', None),
                           ('MultipartUploadId', 'id', None),
                           ('PartSizeInBytes', 'part_size', 0))
 
-    def __init__(self, vault, response, file_path=None):
+    def __init__(self, vault, cas_response, file_path=None):
         self.vault = vault
         for response_name, attr_name, default in self.ResponseDataParser:
-            value = response.get(response_name)
+            value = cas_response.get(response_name)
             setattr(self, attr_name, value or default)
         self.parts = OrderedDict()
         self.file_path = file_path
         self.size_total = 0
-
         if self.file_path is not None:
             self._prepare(self.file_path)
 
@@ -50,29 +53,28 @@ class Uploader(object):
         return 'Multipart Upload: %s' % self.id
 
     @classmethod
-    def calc_part_size(cls, size_total, part_size=MinimumPartSize):
-        if size_total > 4 * 10000 * cls._GIGABYTE:
-            raise ValueError('File too big: %d' % size_total)
+    def calc_part_size(cls, size_total, part_size=_MinimumPartSize):
+        if size_total > 4 * 10000 * GIGABYTE:                       # 单文件最大支持40TB
+            raise ValueError('file too big: %d' % size_total)
 
-        if size_total < cls.MinimumPartSize:
-            raise ValueError('File too small: %d, '
-                             'please use vault.upload_archive' %
-                             size_total)
+        if size_total < cls._MinimumPartSize:
+            raise ValueError('file too small: %d, '
+                             'please use vault.upload_archive' % size_total)
 
-        if part_size % cls._MEGABYTE != 0 or \
-                part_size < cls.MinimumPartSize or \
-                part_size > size_total:
-            part_size = cls.MinimumPartSize
+        if part_size % MEGABYTE != 0 \
+                or part_size < cls._MinimumPartSize \
+                or part_size > size_total:
+            part_size = cls._MinimumPartSize
 
         number_parts = calc_num_part(part_size, size_total)
-        if number_parts > cls.MaximumNumberOfParts:
+        if number_parts > cls._MaximumNumberOfParts:
             part_size_refer = math.ceil(
-                size_total / cls.MaximumNumberOfParts / cls._MEGABYTE)
-            part_size_refer = int(part_size_refer * cls._MEGABYTE)
+                size_total / cls._MaximumNumberOfParts / MEGABYTE)
+            part_size_refer = int(part_size_refer * MEGABYTE)
             part_bit_len = part_size_refer.bit_length() - 1
             part_size = 1 << part_bit_len
             while True:
-                if(part_size >= part_size_refer):
+                if part_size >= part_size_refer:
                     break
                 part_bit_len += 1
                 part_size = 1 << part_bit_len
@@ -92,13 +94,10 @@ class Uploader(object):
 
     def resume(self, file_path):
         self._prepare(file_path)
+        result = self.vault.api.list_all_parts(self.vault.name, self.id)
 
-        result = self.vault.api.list_parts(self.vault.name, self.id)
-
-        # parse parts info
         for part in result['Parts']:
             byte_range = self.parse_range_from_str(part['RangeInBytes'])
-            # tag is tree hash
             self.parts[byte_range] = part['SHA256TreeHash']
             tree_etag = compute_tree_etag_from_file(
                 self.file_path, offset=byte_range[0],
@@ -115,17 +114,14 @@ class Uploader(object):
         def upload_part(byte_range):
             try:
                 time.sleep(random.randint(256, 4096) / 1000)
-
                 offset = byte_range[0]
                 size = range_size(byte_range)
-                etag = compute_etag_from_file(
-                    self.file_path, offset=offset, size=size)
-                tree_etag = compute_tree_etag_from_file(
-                    self.file_path, offset=offset, size=size)
+                etag = compute_etag_from_file(self.file_path, offset=offset, size=size)
+                tree_etag = compute_tree_etag_from_file(self.file_path, offset=offset, size=size)
 
                 f = open_file(self.file_path)
                 with f:
-                    for cnt in xrange(self.NumberRetry):
+                    for cnt in xrange(self._NumberRetry):
                         try:
                             if self.part_size % mmap.ALLOCATIONGRANULARITY == 0:
                                 target = mmap.mmap(f.fileno(), length=size,
@@ -135,9 +131,11 @@ class Uploader(object):
                                 f.seek(offset)
                                 target = f
 
-                            self.vault.api.upload_part(
-                                self.vault.name, self.id, target, byte_range,
-                                etag = etag, tree_etag=tree_etag)
+                            if range_size(byte_range) > content_length(target):
+                                raise ValueError('Byte range exceeded : %d-%d', byte_range)
+                            self.vault.api.post_multipart_from_reader(self.vault.name, self.id, target,
+                                                                      range_size(byte_range), '%d-%d' % byte_range,
+                                                                      etag, tree_etag)
                             self.parts[byte_range] = tree_etag
                             log.info('Range %d-%d upload success.' % byte_range)
                             return
@@ -162,21 +160,16 @@ class Uploader(object):
                                (self.id, byte_range[0], byte_range[1], e))
                 raise
 
-
         log.info('Start upload %s from %s.' % (self.id, self.file_path))
         try:
-            pool = ThreadPool(processes=min(self.NumberThread, len(self.parts)))
+            pool = ThreadPool(processes=min(self._NumberThread, len(self.parts)))
             pool.map(upload_part, [byte_range
                                    for byte_range, tag in self.parts.items()
                                    if tag is None])
 
             size = self.size_completed
             if size != self.size_total:
-                raise UploadArchiveError(
-                    'Incomplete upload %s : %d / %d' % (self.id, size, self.size_total))
-
-            ## tree_hash = compute_tree_etag_from_file(self.file_path)
-
+                raise UploadArchiveError('Incomplete upload %s : %d / %d' % (self.id, size, self.size_total))
             response = self.vault.api.complete_multipart_upload(
                 self.vault.name, self.id, self.size_total,
                 self.tree_hash)
@@ -184,16 +177,16 @@ class Uploader(object):
             log.info('Upload %s finish.' % (self.id))
             return response.get('x-cas-archive-id')
         except UploadArchiveError as e:
-            errorinfo = 'upload %s failed, cause:%s' % (self.id, e)
-            log.error(errorinfo)
+            error_info = 'upload %s failed, cause:%s' % (self.id, e)
+            log.error(error_info)
             raise e
         except Exception as e:
-            errorinfo = 'upload %s failed, cause:%s' % (self.id, e)
-            log.error(errorinfo)
-            raise ValueError(errorinfo)
+            error_info = 'upload %s failed, cause:%s' % (self.id, e)
+            log.error(error_info)
+            raise ValueError(error_info)
 
     def cancel(self):
-        return self.vault.api.cancel_multipart_upload(self.vault.name, self.id)
+        return self.vault.api.abort_multipart_upload(self.vault.name, self.id)
 
     @property
     def size_completed(self):
@@ -202,11 +195,9 @@ class Uploader(object):
                      if tag is not None]
         return sum(size_list)
 
-
     @property
     def tree_hash(self):
-        ### need binary data, not ascii char !
-        etag_list = [binascii.a2b_hex(tag) for _, tag in self.parts.items()
-                          if tag is not None]
+        # need binary data, not ascii char !
+        etag_list = [binascii.a2b_hex(tag) for _, tag in self.parts.items() if tag is not None]
         return MerkleTree().load(etag_list).digest() \
             if len(etag_list) == len(self.parts) else ''

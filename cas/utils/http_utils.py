@@ -1,19 +1,17 @@
 # -*- coding=UTF-8 -*-
 
-import base64
 import hashlib
+import sys
 import time
 import hmac
 import urllib
 from datetime import tzinfo, timedelta
 
-SELF_DEFINE_HEADER_PREFIX = "x-cas-"
+from cas.conf.common_conf import SELF_DEFINE_HEADER_PREFIX
 
 
 class UTC(tzinfo):
-
     """UTC"""
-
     def __init__(self, offset=0):
         self._offset = offset
 
@@ -45,6 +43,7 @@ def format_params(params=None):
     separator = '&'
     check_params = tmp_params.keys()
     check_params.sort()
+
     if check_params is not None:
         for p in check_params:
             res += urllib.quote(p)
@@ -80,11 +79,11 @@ def format_headers(headers=None):
         res = res.rstrip(separator)
     return res
 
-# qcloud signature algorithm !!!
+
 def create_auth(ak, sk, host, method, url, headers, params, expire):
-    '''
-    :param ak:
-    :param sk:
+    """
+    :param ak: access key
+    :param sk: secret key
     :param host:
     :param method:
     :param url:
@@ -92,7 +91,8 @@ def create_auth(ak, sk, host, method, url, headers, params, expire):
     :param params:
     :param expire:
     :return:
-    '''
+    """
+
     if isinstance(sk, unicode):
         sk = sk.encode('utf8')
     now = int(time.time())
@@ -127,7 +127,6 @@ def create_auth(ak, sk, host, method, url, headers, params, expire):
         h_list.sort()
     s_header = ';'.join(h_list)
     auth_content += 'q-header-list=%s&' % s_header
-    #auth_content += 'q-header-list=%s&' % 'host'
 
     p_list = []
     if params:
@@ -141,9 +140,9 @@ def create_auth(ak, sk, host, method, url, headers, params, expire):
 
 
 def append_param(url, params):
-    '''
+    """
         convert the parameters to query string of URI.
-    '''
+    """
     l = []
     for k, v in params.items():
         k = k.replace('_', '-')
@@ -160,3 +159,21 @@ def append_param(url, params):
     if len(l):
         url = url + '?' + '&'.join(l)
     return url
+
+
+def check_response(http_response):
+    try:
+        if http_response.status / 100 != 2:
+            errmsg = ''
+            errmsg += 'Error Headers:\n'
+            errmsg += str(http_response.getheaders())
+            errmsg += '\nError Body:\n'
+            errmsg += http_response.read(1024)
+            errmsg += '\nError Status:\n'
+            errmsg += str(http_response.status)
+            errmsg += '\nFailed!\n'
+            sys.stderr.write(errmsg)
+            sys.exit(1)
+    except AttributeError, e:
+        sys.stderr.write('Error: check response status failed! msg: %s\n' % e)
+        sys.exit(1)

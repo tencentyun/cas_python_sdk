@@ -7,13 +7,21 @@ import string
 import sys
 import time
 
-from cas.Utils import HttpUtils
+from cas.conf import client_conf
+from cas.utils import http_utils
+from cas.utils import file_utils
+
 
 class CASClient(object):
-    DefaultSendBufferSize = 8192
-    DefaultGetBufferSize = 1024 * 1024 * 10
-    DefaultAuthTimeout = 1200  # 1200 seconds
-    provider = 'CAS'
+    """
+    Http API的封装，同时维持客户端的所有访问信息
+    基础接口均返回HTTPResponse
+    """
+
+    _DefaultSendBufferSize = client_conf.DefaultSendBufferSize
+    _DefaultGetBufferSize = client_conf.DefaultGetBufferSize
+    _DefaultAuthTimeout = client_conf.DefaultAuthTimeout
+    _provider = client_conf.provider
 
     def __init__(self, endpoint, appid, ak, sk, port=80, is_security=False):
         self.host = endpoint
@@ -32,7 +40,6 @@ class CASClient(object):
 
     def __http_request(self, method, url, headers=None, body='', params=None):
         headers = headers or dict()
-        # only host need to sign !
         headers['Host'] = self.host
         if headers.get('Authorization') is None:
             headers['Authorization'] = self.__create_auth(method, url, headers, params)
@@ -41,9 +48,7 @@ class CASClient(object):
         headers['User-Agent'] = 'CAS Python SDK'
 
         if params is not None:
-            url = HttpUtils.append_param(url, params)
-        # print '=== debug: send headers: ', headers
-        # print '=== debug: send url: ', url
+            url = http_utils.append_param(url, params)
         conn = self.__get_connection()
         try:
             conn.request(method, url, body, headers)
@@ -114,8 +119,6 @@ class CASClient(object):
 
             headers['Date'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             headers['User-Agent'] = 'CAS Python SDK'
-            # print '=== debug: send headers: ', headers
-            # print '=== debug: send url: ', url
             conn = self.__get_connection()
             conn.putrequest(method, url)
             for k in headers.keys():
@@ -159,8 +162,8 @@ class CASClient(object):
             else:
                 raise Exception('Request error! ' + str(e))
 
-    def __create_auth(self, method, url, headers=None, params=None, expire=DefaultAuthTimeout):
-        auth_value = HttpUtils.create_auth(self.ak, self.sk, self.host, method, url, headers, params, expire)
+    def __create_auth(self, method, url, headers=None, params=None, expire=_DefaultAuthTimeout):
+        auth_value = http_utils.create_auth(self.ak, self.sk, self.host, method, url, headers, params, expire)
         return auth_value
 
     def create_vault(self, vault_name):
@@ -169,7 +172,7 @@ class CASClient(object):
         res = self.__http_request(method, url)
         return res
 
-    def desc_vault(self, vault_name):
+    def describe_vault(self, vault_name):
         url = '/%s/vaults/%s' % (self.appid, vault_name)
         method = 'GET'
         return self.__http_request(method, url)
@@ -179,12 +182,13 @@ class CASClient(object):
         method = 'DELETE'
         return self.__http_request(method, url)
 
-    def list_vault(self, marker=None, limit=None):
+    def list_vaults(self, marker=None, limit=None):
         """
-            @param marker: not required , string, marker of start
-            @param limit:  not required , int, retrive size
+        列出当前用户的所有文件库
+        :param marker: 按照字典序，从marker位置列出Vault的QCS。 未指定则从头开始列出
+        :param limit: 指定要返回的文件的最大数目。 这个值为正整数，取值范围：1-1000，默认为 1000
+        :return:  HTTPResponse
         """
-
         url = '/%s/vaults' % self.appid
         method = 'GET'
         params = dict()
@@ -195,10 +199,15 @@ class CASClient(object):
         return self.__http_request(method, url, params=params)
 
     def post_archive(self, vault_name, content, etag, tree_etag, desc=None):
-        '''
-            Post content to cas as archive
-            @param content: required , string , content of archive
-        '''
+        """
+
+        :param vault_name:
+        :param content:
+        :param etag:
+        :param tree_etag:
+        :param desc:
+        :return:
+        """
         url = '/%s/vaults/%s/archives' % (self.appid, vault_name)
         method = 'POST'
         headers = dict()
@@ -208,16 +217,22 @@ class CASClient(object):
             headers['x-cas-archive-description'] = desc
         headers['Content-Length'] = len(content)
 
-        if(len(content) < 512*1024*1024):
+        if len(content) < 512*1024*1024:
             return self.__http_request(method, url, headers, content)
         else:
             return self.__http_reader_huge_cache_request(method, url, headers, content)
 
     def post_archive_from_reader(self, vault_name, reader, content_length, etag, tree_etag, desc=None):
-        '''
-            Post archive from reader to cas
-            @param content_length: required , int , byte length of archive
-        '''
+        """
+        从IO reader中上传archive
+        :param vault_name:
+        :param reader:
+        :param content_length:
+        :param etag:
+        :param tree_etag:
+        :param desc:
+        :return:
+        """
         url = '/%s/vaults/%s/archives' % (self.appid, vault_name)
         method = 'POST'
         headers = dict()
@@ -232,27 +247,27 @@ class CASClient(object):
     def delete_archive(self, vault_name, archive_id):
         url = '/%s/vaults/%s/archives/%s' % (self.appid, vault_name, archive_id)
         method = 'DELETE'
-        headers = {}
+        headers = dict()
         res = self.__http_request(method, url, headers)
         return res
 
-    def create_multipart_upload(self, vault_name, partsize, desc=None):
-        '''
-            @param partsize:required, int, size of per part should be large than 64M(67108864) and mod 1M equals 0
-        '''
+    def initiate_multipart_upload(self, vault_name, part_size, desc=None):
+        """
+            @param part_size:required, int, size of per part should be large than 64M(67108864) and mod 1M equals 0
+        """
         url = '/%s/vaults/%s/multipart-uploads' % (self.appid, vault_name)
-        headers = {}
-        headers['x-cas-part-size'] = str(partsize)
-        if desc != None:
+        headers = dict()
+        headers['x-cas-part-size'] = str(part_size)
+        if desc is not None:
             headers['x-cas-archive-description'] = desc
         method = 'POST'
         res = self.__http_request(method, url, headers)
         return res
 
-    def list_multipart_upload(self, vault_name, marker=None, limit=None):
-        '''
+    def list_multipart_uploads(self, vault_name, marker=None, limit=None):
+        """
             list all multipart uploads
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads' % (self.appid, vault_name)
         method = 'GET'
         params = {}
@@ -260,40 +275,34 @@ class CASClient(object):
             params['marker'] = marker
         if limit is not None:
             params['limit'] = limit
-        headers = {}
+        headers = dict()
         body = ''
         res = self.__http_request(method, url, headers, body, params)
         return res
 
-    def complete_multipart_upload(self, vault_name, upload_id, filesize, tree_etag):
-        '''
+    def complete_multipart_upload(self, vault_name, upload_id, file_size, tree_etag):
+        """
             complete multipart upload
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'POST'
-        headers = {}
-        headers['x-cas-archive-size'] = str(filesize)
+        headers = dict()
+        headers['x-cas-archive-size'] = str(file_size)
         headers['x-cas-sha256-tree-hash'] = tree_etag
         res = self.__http_request(method, url, headers)
         return res
 
     def abort_multipart_upload(self, vault_name, upload_id):
-        '''
+        """
             delete multipart upload
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'DELETE'
-        headers = {}
+        headers = dict()
         res = self.__http_request(method, url, headers)
         return res
 
     def post_multipart(self, vault_name, upload_id, content, prange, etag, tree_etag):
-        """
-            post content to cas as multipart
-
-            @param content:required, string, upload data content
-            @param prange: required, string, upload data range eg: 0-67108863
-        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'PUT'
         headers = dict()
@@ -309,21 +318,21 @@ class CASClient(object):
 
         sys.stdout.write('====== debug: post part from content, url: %s, range, %s\n' % (url, prange))
 
-        if(len(content) < 512*1024*1024):
+        if len(content) < 512*1024*1024:
             return self.__http_request(method, url, headers, content)
         else:
             return self.__http_reader_huge_cache_request(method, url, headers, content)
 
     def post_multipart_from_reader(self, vault_name, upload_id, reader, content_length, prange, etag, tree_etag):
-        '''
+        """
             post multipart from reader to cas
 
             @param content_length: size of post part , should be equal with the multipart upload setting,the last part can be less
             @param prange: required, string, upload data range eg: 0-67108863
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'PUT'
-        headers = {}
+        headers = dict()
         headers['Host'] = self.host
         headers['Content-Length'] = content_length
         headers['x-cas-content-sha256'] = etag
@@ -333,16 +342,15 @@ class CASClient(object):
         # Content-Range:bytes 0-4194303/*
         # place range here !
         headers['Content-Range'] = 'bytes ' + prange + '/*'
-        #headers['Content-Range'] = prange
 
         sys.stdout.write('====== debug: post part from reader, url: %s, range, %s\n' % (url, prange))
 
         return self.__http_reader_request(method, url, headers, reader, content_length)
 
     def list_parts(self, vault_name, upload_id, marker=None, limit=None):
-        '''
+        """
             list all multiparts belong to one upload
-        '''
+        """
         url = '/%s/vaults/%s/multipart-uploads/%s' % (self.appid, vault_name, upload_id)
         method = 'GET'
         params = dict()
@@ -352,12 +360,15 @@ class CASClient(object):
             params['limit'] = limit
         return self.__http_request(method, url, params=params)
 
-    # todo
-    def create_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
+    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
         """
             create job
+            @param vault_name:
             @param job_type: required, string, can only be archive-retrieval or inventory-retrieval
             @param archive_id: not required, string, when job_type is archive-retrieval , archive_id must be set
+            @param desc: retrieval job's description
+            @param byte_range: the range of bytes to retrieve
+            @param tier:  retrieval type : 'Expedited' , 'Standard', 'Bulk'
         """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'POST'
@@ -374,12 +385,12 @@ class CASClient(object):
         body = json.dumps(body)
         return self.__http_request(method, url, body=body)
 
-    def get_job_desc(self, vault_name, job_id):
+    def describe_job(self, vault_name, job_id):
         url = '/%s/vaults/%s/jobs/%s' % (self.appid, vault_name, job_id)
         method = 'GET'
         return self.__http_request(method, url)
 
-    def fetch_job_output(self, vault_name, job_id, orange=None):
+    def get_job_output(self, vault_name, job_id, orange=None):
         """
            get job output
            @param orange: not required , string, fetch byte range like bytes=0-1048575
@@ -391,15 +402,50 @@ class CASClient(object):
             headers['Range'] = orange
         return self.__http_request(method, url, headers)
 
-    def list_job(self, vault_name, marker=None, limit=None):
+    def list_jobs(self, vault_name, completed=None, marker=None, limit=None, status_code=None):
         """
-            fetch all jobs
+        :param vault_name: 对应的vault
+        :param completed: 要返回的任务的状态，枚举值：true, false
+        :param marker: 字典序，从Marker起读取对应条目
+        :param limit: 要返回任务的最大数目，默认限制为 1000
+        :param status_code: 要返回的任务状态的类型。枚举值：InProgress, Succeeded, Failed
+        :return: HTTPResponse
         """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'GET'
         params = dict()
+        if completed is not None:
+            params['completed'] = completed
         if marker is not None:
             params['marker'] = marker
         if limit is not None:
             params['limit'] = limit
+        if status_code is not None:
+            params['statuscode'] = status_code
+
         return self.__http_request(method, url, params=params)
+
+    def upload_archive(self, vault_name, content, etag, tree_tag, size=None, desc=None):
+        if not file_utils.is_file_like(content):
+            return self.post_archive(vault_name, content, etag, tree_tag, desc=desc)
+        else:
+            return self.post_archive_from_reader(vault_name, content, min(size, file_utils.content_length(content)),
+                                                 etag, tree_tag, desc)
+
+    def get_vault_access_policy(self, vault_name):
+        url = '/%s/vaults/%s/access-policy' % (self.appid, vault_name)
+        method = "GET"
+        return self.__http_request(method, url)
+
+    def set_vault_access_policy(self,vault_name,policy):
+        url = '/%s/vault/%s/access-policy' % (self.appid, vault_name)
+        method = "PUT"
+        body = dict()
+        body['Policy'] = policy
+        body = json.dump(body)
+        return self.__http_request(method, url, body=body)
+
+    def delete_vault_access_policy(self,vault_name):
+        url = '/%s/vaults/%s/access-policy' % (self.appid, vault_name)
+        method = 'DELETE'
+        return self.__http_request(method, url)

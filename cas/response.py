@@ -6,28 +6,27 @@ import yaml
 
 
 class CASResponse(dict):
-    def __init__(self, response):
+    def __init__(self, http_response):
         super(dict, self).__init__()
-
-        raw_headers = response.getheaders()
+        raw_headers = http_response.getheaders()
         headers = dict()
         for k, v in raw_headers:
             headers[k.lower()] = v
 
-        self.status = response.status
+        self.status = http_response.status
         self.request_id = headers['x-cas-requestid']
-        self.response = response
+        self.response = http_response
 
         for k, v in headers.items():
             self[k] = v
 
         content_type = headers.get('content-type')
         if content_type == 'application/octet-stream':
-            self.reader = response
+            self.reader = http_response
             return
 
         try:
-            body = response.read()
+            body = http_response.read()
             self.reader = io.BytesIO(body)
             if 'content-range' in self:
                 return

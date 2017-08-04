@@ -9,8 +9,8 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import namedtuple
 
 from cas.cas_cmd.cas_ops import CASCMD
-from cas.cas_cmd.cas_ops import CONFIGSECTION
-from cas.cas_cmd.cas_ops import DEFAULT_CONFIGFILE
+from cas.conf.common_conf import CONFIG_SECTION
+from cas.conf.common_conf import DEFAULT_CONFIG_FILE
 
 HELP_INFO = \
     '''Usage: cascmd <action> [<args>]:
@@ -38,10 +38,10 @@ Etag Operations:
     part_tree_etag   local_file start end
 
 Multipart Archive Operations:
-    init_multiupload       cas://vault part_size [--desc desc]
-    list_multiupload       cas://vault [--marker marker] [--limit limit]
-    complete_multiupload   cas://vault upload_id file_size [file_tree_etag]
-    abort_multiupload      cas://vault upload_id
+    init_multipart_upload       cas://vault part_size [--desc desc]
+    list_multipart_upload       cas://vault [--marker marker] [--limit limit]
+    complete_multipart_upload   cas://vault upload_id file_size [file_tree_etag]
+    abort_multipart_upload      cas://vault upload_id
     upload_part            cas://vault upload_id local_file start end [etag] [part_tree_etag]
     list_part              cas://vault upload_id [--maker marker] [--limit limit]
 
@@ -60,33 +60,35 @@ Other Operations:
 AuthInfo = namedtuple(
     'AuthInfo', ['endpoint', 'appid', 'secretid', 'secretkey'], verbose=False)
 
-def build_authinfo(args):
+
+def build_auth_info(args):
     try:
         (endpoint, appid, secretid, secretkey) = (args.endpoint, args.appid, args.secretid, args.secretkey)
         if not (endpoint and appid and secretid and secretid):
             config = ConfigParser.ConfigParser()
-            cfgfile = args.config_file or DEFAULT_CONFIGFILE
+            cfgfile = args.config_file or DEFAULT_CONFIG_FILE
             config.read(cfgfile)
             # user defined inputs have higher priority
-            endpoint = endpoint or config.get(CONFIGSECTION, 'endpoint')
-            appid = appid or config.get(CONFIGSECTION, 'appid')
-            secretid = secretid or config.get(CONFIGSECTION, 'secretid')
-            secretkey = secretkey or config.get(CONFIGSECTION, 'secretkey')
+            endpoint = endpoint or config.get(CONFIG_SECTION, 'endpoint')
+            appid = appid or config.get(CONFIG_SECTION, 'appid')
+            secretid = secretid or config.get(CONFIG_SECTION, 'secretid')
+            secretkey = secretkey or config.get(CONFIG_SECTION, 'secretkey')
         return AuthInfo(endpoint, appid, secretid, secretkey)
     except:
         sys.stderr.write("Cannot get authinfo (endpoint, appid, secretid, secretkey). " \
                          "Setup use: cascmd.py config\n")
         sys.exit(1)
 
+
 def save_config(args):
     config = ConfigParser.RawConfigParser()
-    config.add_section(CONFIGSECTION)
-    config.set(CONFIGSECTION, 'endpoint', args.endpoint)
-    config.set(CONFIGSECTION, 'appid', args.appid)
-    config.set(CONFIGSECTION, 'secretid', args.secretid)
-    config.set(CONFIGSECTION, 'secretkey', args.secretkey)
+    config.add_section(CONFIG_SECTION)
+    config.set(CONFIG_SECTION, 'endpoint', args.endpoint)
+    config.set(CONFIG_SECTION, 'appid', args.appid)
+    config.set(CONFIG_SECTION, 'secretid', args.secretid)
+    config.set(CONFIG_SECTION, 'secretkey', args.secretkey)
     # set config_file
-    cfgfile = args.config_file or DEFAULT_CONFIGFILE
+    cfgfile = args.config_file or DEFAULT_CONFIG_FILE
     if os.path.isfile(cfgfile):
         ans = raw_input('Config file already existed. Do you wish to overwrite it?(y/n)')
         if ans.lower() != 'y':
@@ -96,8 +98,10 @@ def save_config(args):
         config.write(f)
     print 'Your configuration has been saved to %s' % cfgfile
 
+
 def print_help(args):
     print HELP_INFO
+
 
 def add_userinfo_config(parser):
     parser.add_argument('--endpoint', type=str, help='endpoint, e.g. cas.ap-chengdu.myqcloud.com')
@@ -167,7 +171,7 @@ if __name__ == '__main__':
     pcj.add_argument('--start', help=\
             'start position of archive to retrieve, default to be 0')
     pcj.add_argument('--size', help=\
-            'size to retrieve, default to be (totalsize - start)')
+            'size to retrieve, default to be (totalsize - start)' )
     pcj.add_argument('--desc', type=str, help='description of the job')
     pcj.add_argument('--tier', type=str, help='The retrieval option to use for '\
             'the archive retrieval. Standard is the default value used.')
@@ -178,12 +182,9 @@ if __name__ == '__main__':
     pfj.add_argument('vault', type=str, help='format cas://vault-name')
     pfj.add_argument('jobid', type=str, help='jobId createjob returned')
     pfj.add_argument('local_file', type=str, help='local file output written to')
-    pfj.add_argument('-f', '--force', action='store_true', help=\
-            'force overwrite if file exists')
-    pfj.add_argument('--start', type=str, help=\
-            'start position to download output retrieved, default to be 0')
-    pfj.add_argument('--size', type=str, help=\
-            'size to download, default to be (totalsize - start)')
+    pfj.add_argument('-f', '--force', action='store_true', help='force overwrite if file exists')
+    pfj.add_argument('--start', type=str, help='start position to download output retrieved, default to be 0')
+    pfj.add_argument('--size', type=str, help='size to download, default to be (totalsize - start)')
     add_userinfo_config(pfj)
 
     cmd = 'create_vault'
@@ -211,11 +212,9 @@ if __name__ == '__main__':
     pua = subcmd.add_parser(cmd, help='upload a local file')
     pua.add_argument('vault', type=str, help='format cas://vault-name')
     pua.add_argument('local_file', type=str, help='file to be uploaded')
-    pua.add_argument('--upload_id', type=str, help=\
-            'MultiPartUpload ID upload returned to resume last upload')
+    pua.add_argument('--upload_id', type=str, help='MultiPartUpload ID upload returned to resume last upload')
     pua.add_argument('--desc', type=str, help='description of the file')
-    pua.add_argument('-p', '--part-size', type=str, help=
-            'multipart upload part size')
+    pua.add_argument('-p', '--part-size', type=str, help='multipart upload part size')
     add_userinfo_config(pua)
 
     cmd = 'delete_archive'
@@ -230,28 +229,27 @@ if __name__ == '__main__':
     add_userinfo_config(pfth)
 
     cmd = 'part_tree_etag'
-    ppth = subcmd.add_parser(cmd, help=\
-            'calculate tree sha256 hash of a multipart upload part')
+    ppth = subcmd.add_parser(cmd, help= 'calculate tree sha256 hash of a multipart upload part')
     ppth.add_argument('local_file', type=str, help='file to be read from')
     ppth.add_argument('start', type=str, help='start position to read')
     ppth.add_argument('end', type=str, help='end position to read')
     add_userinfo_config(ppth)
 
-    cmd = 'init_multiupload'
+    cmd = 'init_multipart_upload'
     pim = subcmd.add_parser(cmd, help='initiate a multipart upload')
     pim.add_argument('vault', type=str, help='format cas://vault-name')
     pim.add_argument('part_size', type=str, help='size of each multipart upload')
     pim.add_argument('--desc', type=str, help='description of the upload')
     add_userinfo_config(pim)
 
-    cmd = 'abort_multiupload'
+    cmd = 'abort_multipart_upload'
     pam = subcmd.add_parser(cmd, help='abort a multipart upload')
     pam.add_argument('vault', type=str, help='format cas://vault-name')
     pam.add_argument('upload_id', type=str, help=
             'ID of multipart upload to be aborted')
     add_userinfo_config(pam)
 
-    cmd = 'list_multiupload'
+    cmd = 'list_multipart_upload'
     plm = subcmd.add_parser(cmd, help='list all multipart uploads in a vault')
     plm.add_argument('vault', type=str, help='format cas://vault-name')
     plm.add_argument('--marker', type=str, help='list start multiupload position marker')
@@ -280,7 +278,7 @@ if __name__ == '__main__':
     plp.add_argument('--limit', type=int, help='number to be listed')
     add_userinfo_config(plp)
 
-    cmd = 'complete_multiupload'
+    cmd = 'complete_multipart_upload'
     pcm = subcmd.add_parser(cmd, help='complete the multipart upload')
     pcm.add_argument('vault', type=str, help='vault where the upload initiated')
     pcm.add_argument('upload_id', type=str, help='ID create multipartupload returned')
@@ -325,16 +323,15 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # build auth_info
-    auth_info = build_authinfo(args)
+    auth_info = build_auth_info(args)
 
     # error command
     method = CASCMD.__dict__.get('cmd_%s' % args.cmd)
-    if method == None:
+    if method is None:
         sys.stderr.write('Unsupported command: %s\nUse help for more ' \
                          'information\n' % args.cmd)
         sys.exit(1)
 
-    # execute command
     begin = time.time()
     cas_cmd = CASCMD(auth_info) 
     method(cas_cmd, args)

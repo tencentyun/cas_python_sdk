@@ -1,5 +1,8 @@
-import hashlib
 import binascii
+import hashlib
+
+from cas.conf.common_conf import MEGABYTE
+
 
 class MerkleTree(object):
 
@@ -31,7 +34,6 @@ class MerkleTree(object):
                     md = self.hash_func()
                     md.update(hashes.pop(0))
                     md.update(hashes.pop(0))
-                    #new_hashes.append(md.hexdigest())
                     new_hashes.append(md.digest())
                 elif len(hashes) > 0:
                     new_hashes.append(hashes.pop(0))
@@ -44,9 +46,7 @@ class MerkleTree(object):
 
 class TreeHashGenerator(object):
 
-    MEGA_BYTE = 1024 * 1024
-
-    def __init__(self, block_size=MEGA_BYTE, hash_func=hashlib.sha256):
+    def __init__(self, block_size=MEGABYTE, hash_func=hashlib.sha256):
         self.block_size = block_size
         self.hash_func = hash_func
         self.stream = hash_func()
@@ -58,7 +58,6 @@ class TreeHashGenerator(object):
         while length > 0:
             if length >= self.remain:
                 self.stream.update(data[offset:offset + self.remain])
-                #self.tree.append(self.stream.hexdigest())
                 self.tree.append(self.stream.digest())
                 self.stream = self.hash_func()
                 offset += self.remain
@@ -71,7 +70,6 @@ class TreeHashGenerator(object):
 
     def generate(self):
         if self.remain != self.block_size:
-            #self.tree.append(self.stream.hexdigest())
             self.tree.append(self.stream.digest())
             self.stream = self.hash_func()
 

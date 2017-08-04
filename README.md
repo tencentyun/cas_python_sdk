@@ -15,4 +15,4 @@
 
 ## Update Logs
 
-* 0.0.1 support upload(normal and multipart) and delete
+* 1.0.0 support python sdk and command tools: cascmd

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import json
 import sys
 from httplib import HTTPException
@@ -35,19 +33,3 @@ class CASServerError(Exception):
                   (self.status, content, self.request_id)
 
         super(CASServerError, self).__init__(msg)
-
-
-class CASClientError(Exception):
-    pass
-
-
-class UploadArchiveError(CASClientError):
-    pass
-
-
-class DownloadArchiveError(CASClientError):
-    pass
-
-
-class HashDoesNotMatchError(CASClientError):
-    pass

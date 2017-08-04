@@ -9,23 +9,30 @@ import time
 
 import yaml
 
-from cas.Utils.FileUtils import *
-
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
 from multiprocessing.pool import ThreadPool
 
-from cas.exceptions import *
+from cas.conf import multi_task_conf
+from cas.utils.file_utils import *
+from cas.utils.file_utils import calc_num_part
+from cas.conf.common_conf import MEGABYTE
+from cas.conf.common_conf import Job_Default_Download_PartSize
+from cas.conf.common_conf import MAX_PART_NUM
+from cas.exceptions.cas_server_error import CASServerError
+from cas.exceptions.cas_client_error import DownloadArchiveError
+from cas.exceptions.cas_client_error import HashDoesNotMatchError
+
 
 log = logging.getLogger(__name__)
 
-class Job(object):
-    _MEGABYTE = 1024 * 1024
 
-    NumberThread = 16
-    NumRetry = 3
+class Job(object):
+
+    _NumberThread = multi_task_conf.Job_NumberThread
+    _NumRetry = multi_task_conf.Job_NumRetry
 
     ResponseDataParser = (('Action', 'action', None),
                           ('ArchiveSHA256TreeHash', 'archive_etag', None),
@@ -43,10 +50,10 @@ class Job(object):
                           ('Tier', 'tier', None),
                           ('SHA256TreeHash', 'retrieval_etag', None))
 
-    def __init__(self, vault, response):
+    def __init__(self, vault, cas_response):
         self.vault = vault
         self.parts = OrderedDict()
-        self._update(response)
+        self._update(cas_response)
 
     def __repr__(self):
         return 'Job: %s' % self.id
@@ -61,26 +68,26 @@ class Job(object):
     def _is_tree_hash_align(self):
         return self.retrieval_etag is not None
 
-    def calc_part_size(self, size_total):
-        part_size = 32*1024*1024
-
+    @classmethod
+    def calc_part_size(cls, size_total):
+        part_size = Job_Default_Download_PartSize
         number_parts = calc_num_part(part_size, size_total)
-        if number_parts > 10000:
+        if number_parts > MAX_PART_NUM:
             part_size_refer = math.ceil(
-                size_total / 10000 / (1024*1024))
-            part_size_refer = int(part_size_refer * 1024*1024)
+                size_total / MAX_PART_NUM / MEGABYTE)
+            part_size_refer = int(part_size_refer * MEGABYTE)
             part_bit_len = part_size_refer.bit_length() - 1
-            part_size = 1<< part_bit_len
+            part_size = 1 << part_bit_len
             while True:
-                if(part_size >= part_size_refer):
+                if part_size >= part_size_refer:
                     break
                 part_bit_len += 1
-                part_size = 1<< part_bit_len 
+                part_size = 1 << part_bit_len
         return part_size
 
-    def _update(self, response):
+    def _update(self, cas_response):
         for response_name, attr_name, default in self.ResponseDataParser:
-            value = response.get(response_name)
+            value = cas_response.get(response_name)
             setattr(self, attr_name, value or default)
 
         self.parts = OrderedDict()
@@ -95,8 +102,8 @@ class Job(object):
                 self.parts[(0, size - 1)] = None
 
     def update_status(self):
-        response = self.vault.api.describe_job(self.vault.name, self.id)
-        self._update(response)
+        cas_response = self.vault.api.describe_job(self.vault.name, self.id)
+        self._update(cas_response)
 
     def _check_status(self, block=False):
         self.update_status()
@@ -107,24 +114,25 @@ class Job(object):
                 raise DownloadArchiveError('Job process failed')
         elif block:
             while not self.completed:
-                log.info('Job :'+ self.id +' status: ' + self.status_code)
+                log.info('Job :' + self.id + ' status: ' + self.status_code)
                 time.sleep(random.randint(6, 9))
                 self.update_status()
 
     def download_by_range(self, byte_range, file_path=None, file_obj=None,
                           chunk_size=None, block=True):
+
         if self.action == "PullFromCOS" or self.action == "PushToCOS":
             raise DownloadArchiveError('Job not ready')
 
         self._check_status(block)
 
-        chunk_size = chunk_size or self._MEGABYTE
+        chunk_size = chunk_size or (1 * MEGABYTE)
         f = open_file(file_path=file_path, file_obj=file_obj, mode='wb+')
         offset = f.tell() if file_obj is not None else 0
         size = range_size(byte_range)
 
         try:
-            for cnt in xrange(self.NumRetry):
+            for cnt in xrange(self._NumRetry):
                 pos = 0
                 try:
                     response = self.vault.api.get_job_output(
@@ -169,7 +177,7 @@ class Job(object):
             raise DownloadArchiveError('Job not ready')
 
         self._check_status(block)
-        chunk_size = chunk_size or self._MEGABYTE
+        chunk_size = chunk_size or 1 * MEGABYTE
         if self.inventory_size > 0:
             return self.download_by_range(
                 file_path=file_path,
@@ -185,8 +193,8 @@ class Job(object):
         file_lock = threading.RLock()
 
         def download_part(byte_range):
-            for cnt in xrange(self.NumRetry):
-                time.sleep(random.randint(256, 4096) / 1000.)
+            for cnt in xrange(self._NumRetry):
+                time.sleep(random.randint(256, 4096) / 1000)
                 try:
                     response = self.vault.api.get_job_output(
                         self.vault.name, self.id, byte_range=byte_range)
@@ -238,7 +246,7 @@ class Job(object):
         with f:
             log.info('Start download.')
             pool = ThreadPool(
-                            processes=min(self.NumberThread, len(self.parts)))
+                            processes=min(self._NumberThread, len(self.parts)))
             pool.map(download_part,
                      [byte_range for byte_range, tag in self.parts.items()
                       if tag is None])
@@ -249,7 +257,7 @@ class Job(object):
                 raise DownloadArchiveError(
                     'Incomplete download: %d / %d' %
                     (size, size_total))
-            if self._is_tree_hash_align() == True:
+            if self._is_tree_hash_align():
                 tree_etag_list = [binascii.unhexlify(tree_etag) for _,tree_etag in self.parts.items()]
                 tree_etag_actual = compute_combine_tree_etag_from_list(tree_etag_list)
                 if tree_etag_actual != self.retrieval_etag:

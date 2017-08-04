@@ -6,8 +6,8 @@ import math
 import mmap
 import os
 
-from cas.merkle import MerkleTree
-from cas.merkle import TreeHashGenerator
+from cas.utils.merkle import MerkleTree
+from cas.utils.merkle import TreeHashGenerator
 
 
 def is_file_like(obj):
@@ -23,11 +23,11 @@ def content_length(content):
 
     if hasattr(content, 'fileno'):
         try:
-            fileno = content.fileno()
+            file_no = content.fileno()
         except io.UnsupportedOperation:
             pass
         else:
-            return os.fstat(fileno).st_size - content.tell()
+            return os.fstat(file_no).st_size - content.tell()
 
     if hasattr(content, 'getvalue'):
         return len(content.getvalue())
@@ -67,15 +67,13 @@ def calc_ranges(part_size, size_total):
     return result
 
 
-def compute_etag_from_file(file_path, offset=0, size=None,
-                                  chunk_size=1024 * 1024):
+def compute_etag_from_file(file_path, offset=0, size=None, chunk_size=1024 * 1024):
     with open(file_path, 'rb') as f:
         return compute_etag_from_file_obj(
             f, offset=offset, size=size, chunk_size=chunk_size)
 
 
-def compute_etag_from_file_obj(file_obj, offset=0, size=None,
-                                      chunk_size=1024 * 1024):
+def compute_etag_from_file_obj(file_obj, offset=0, size=None, chunk_size=1024 * 1024):
     etag = hashlib.sha256()
      
     size = size or os.fstat(file_obj.fileno()).st_size - offset
@@ -108,8 +106,8 @@ def compute_combine_etag(etag_list):
 
 
 def compute_combine_tree_etag_from_list(tree_etag_list):
-    merkletree = MerkleTree(hash_list=tree_etag_list)
-    return merkletree.digest()
+    merkle_tree = MerkleTree(hash_list=tree_etag_list)
+    return merkle_tree.digest()
 
 
 def compute_tree_etag_from_file(file_path, offset=0, size=None,
@@ -124,7 +122,6 @@ def compute_tree_etag_from_file_obj(file_obj, offset=0, size=None,
     generator = TreeHashGenerator()
 
     size = size or os.fstat(file_obj.fileno()).st_size - offset
-
     if size != 0 and offset % mmap.ALLOCATIONGRANULARITY == 0:
         target = mmap.mmap(file_obj.fileno(), length=size,
                            offset=offset,
@@ -151,8 +148,7 @@ def compute_hash_from_file(file_path, offset=0, size=None, chunk_size=1024*1024)
             f, offset=offset, size=size, chunk_size=chunk_size)
         
 
-def compute_hash_from_file_obj(file_obj, offset=0, size=None,
-                                    chunk_size=1024 * 1024):
+def compute_hash_from_file_obj(file_obj, offset=0, size=None, chunk_size=1024 * 1024):
     etag = hashlib.sha256()
     generator = TreeHashGenerator()
 
@@ -176,4 +172,4 @@ def compute_hash_from_file_obj(file_obj, offset=0, size=None,
         file_obj.seek(offset)
     else:
         target.close()
-    return (etag.hexdigest(), generator.generate().digest())
+    return etag.hexdigest(), generator.generate().digest()

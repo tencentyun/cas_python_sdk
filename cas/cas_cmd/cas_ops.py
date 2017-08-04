@@ -6,82 +6,66 @@ import sys
 from collections import namedtuple
 
 from cas.client import CASClient
-from cas.Utils.FileUtils import *
+from cas.conf.common_conf import DEFAULT_NORMAL_UPLOAD_THRESHOLD
+from cas.conf.common_conf import MAX_PART_NUM
+from cas.conf.common_conf import RECOMMEND_MIN_PART_SIZE
+from cas.utils.file_utils import *
+from cas.utils.http_utils import check_response
+from cas.vault import parse_vault_name
 
-CAS_PREFIX = 'cas://'
-DEFAULT_HOST = 'cas.ap-chengdu.myqcloud.com'
-DEFAULT_PORT = 80
-DEFAULT_CONFIGFILE = os.path.expanduser('~') + '/.cascmd_credentials'
-CONFIGSECTION = 'CASCredentials'
-
-def check_response(res):
-    try:
-        if res.status / 100 != 2:
-            errmsg = ''
-            errmsg += 'Error Headers:\n'
-            errmsg += str(res.getheaders())
-            errmsg += '\nError Body:\n'
-            errmsg += res.read(1024)
-            errmsg += '\nError Status:\n'
-            errmsg += str(res.status)
-            errmsg += '\nFailed!\n'
-            sys.stderr.write(errmsg)
-            sys.exit(1)
-    except AttributeError, e:
-        sys.stderr.write('Error: check response status failed! msg: %s\n' % e)
-        sys.exit(1)
-
-def parse_vault_name(path):
-    if not path.lower().startswith(CAS_PREFIX):
-        sys.stderr.write('cas vault path must start with %s\n' % CAS_PREFIX)
-        sys.exit(1)
-    path_fields = path[len(CAS_PREFIX):].split('/')
-    name = path_fields[0]
-    return name
 
 class CASCMD(object):
-
+    """
+    CASCMD 使用的是HTTP
+    """
     def __init__(self, auth_info):
-        self.api = CASClient(auth_info.endpoint, auth_info.appid,
-                       auth_info.secretid, auth_info.secretkey)
+        self.api = CASClient(auth_info.endpoint, auth_info.appid, auth_info.secretid, auth_info.secretkey)
 
-    def byte_humanize(self, byte):
-        if byte == None: return ''
-        unitlist = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-        unit = unitlist[0]
-        for i in range(len(unitlist)):
-            unit = unitlist[i]
+    @classmethod
+    def _byte_humanize(cls, byte):
+        if byte is None:
+            return ''
+        unit_list = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        unit = unit_list[0]
+        for i in range(len(unit_list)):
+            unit = unit_list[i]
             if int(byte) // 1024 == 0:
                 break
             byte = float(byte) / 1024
         return '%.2f %s' % (byte, unit)
 
-    def parse_size(self, size):
+    @classmethod
+    def _parse_size(cls, size):
         try:
-            if size == None: return size
-            if isinstance(size, (int, long)): return size
+            if size is None:
+                return size
+            if isinstance(size, (int, long)):
+                return size
             size = size.rstrip('B')
-            if size.isdigit(): return int(size)
+            if size.isdigit():
+                return int(size)
             byte, unit = int(size[:-1]), size[-1].upper()
-            unitlist = ['K', 'M', 'G', 'T', 'P']
-            if unit not in unitlist:
+            unit_list = ['K', 'M', 'G', 'T', 'P']
+            if unit not in unit_list:
                 byte = int(size)
             else:
-                idx = unitlist.index(unit)
-                for _ in range(idx + 1): byte *= 1024
+                idx = unit_list.index(unit)
+                for _ in range(idx + 1):
+                    byte *= 1024
             return byte
         except Exception, e:
-            sys.stderr.write('[Error]: Inapropriate size %s provided\n' % size)
+            sys.stderr.write('[Error]: Inappropriate size %s provided\n' % size)
             sys.stderr.write('Only numbers, optionally ended with K, M, G, ' \
                              'T, P are accepted, units are case insensitive\n')
             sys.exit(1)
 
-    def kv_print(self, idict, title=None):
+    @classmethod
+    def kv_print(cls, idict, title=None):
         keys = title or idict.keys()
-        maxlen = max([len(t) for t in keys])
+        max_len = max([len(t) for t in keys])
         fmt = u'{:>{lname}}: {}'
         for k in keys:
-            print fmt.format(k, idict[k], lname=maxlen)
+            print fmt.format(k, idict[k], lname=max_len)
 
     def cmd_ls(self, args):
         return self.cmd_list_vault(args)
@@ -103,19 +87,14 @@ class CASCMD(object):
             sys.exit(1)
         size = os.path.getsize(args.local_file)
         desc = args.desc or args.local_file[:128]
-        # 默认推荐单文件上传的阈值
-        DEFAULT_NORMAL_UPLOAD_THRESHOLD = 100 * 1024 * 1024
-        # 推荐的分块大小
-        RECOMMOND_MIN_PART_SIZE = 16 * 1024 * 1024
-        # 最大分块个数
-        MAX_PART_NUM = 10000
+
         if (not args.part_size and size >= DEFAULT_NORMAL_UPLOAD_THRESHOLD) or \
-                (args.part_size and size > RECOMMOND_MIN_PART_SIZE):
+                (args.part_size and size > RECOMMEND_MIN_PART_SIZE):
             resume = 0
             if not args.upload_id:
-                partsize = self.parse_size(args.part_size)
+                partsize = self._parse_size(args.part_size)
                 if partsize:
-                    if partsize % (RECOMMOND_MIN_PART_SIZE) != 0:
+                    if partsize % (RECOMMEND_MIN_PART_SIZE) != 0:
                         sys.stderr.write('Error: partsize must be divided by 16MB!\n')
                         sys.exit(1)
                     if partsize * MAX_PART_NUM < size:
@@ -125,22 +104,22 @@ class CASCMD(object):
                         while partsize > size:
                             partsize /= 2
                 else:
-                    print 'File larger than 100MB, multipart upload will be used'
+                    print 'test_utils larger than 100MB, multipart upload will be used'
                     partsize = 16 * 1024 * 1024
                 while partsize * MAX_PART_NUM < size:
                     partsize *= 2
                 nparts = size // partsize
                 if size % partsize: nparts += 1
                 print 'Use %s parts with partsize %s to upload' % \
-                        (nparts, self.byte_humanize(partsize))
+                        (nparts, self._byte_humanize(partsize))
 
                 Create = namedtuple('Namespace', ['vault', 'part_size', 'desc'])
                 cargs = Create(args.vault, partsize, desc)
-                upload_id = self.cmd_init_multiupload(cargs)
+                upload_id = self.cmd_init_multipart_upload(cargs)
             else:
                 upload_id = args.upload_id
                 vault_name = parse_vault_name(args.vault)
-                res = self.api.list_multipart(vault_name, upload_id, None, None)
+                res = self.api.list_parts(vault_name, upload_id, None, None)
                 check_response(res)
                 rjson = json.loads(res.read(), 'UTF8')
                 plist = rjson['Parts']
@@ -157,7 +136,7 @@ class CASCMD(object):
                     else:
                         resume = resumebytes // partsize
                 print 'Resume last upload with partsize %s' % \
-                        self.byte_humanize(partsize)
+                        self._byte_humanize(partsize)
             Part = namedtuple('Namespace', ['vault', 'upload_id', 'local_file',
                 'start', 'end', 'etag', 'tree_etag'])
             start = 0
@@ -177,18 +156,18 @@ class CASCMD(object):
                                                 'size', 'tree_etag'])
             etree = compute_combine_tree_etag_from_list(etaglist)
             cargs = Complete(args.vault, upload_id, size, etree)
-            self.cmd_complete_multiupload(cargs)
+            self.cmd_complete_multipart_upload(cargs)
             return
-        if size <= RECOMMOND_MIN_PART_SIZE and args.part_size:
-            print 'File smaller than 16MB, part-size will be ignored.'
+        if size <= RECOMMEND_MIN_PART_SIZE and args.part_size:
+            print 'test_utils smaller than 16MB, part-size will be ignored.'
         Post = namedtuple('Namespace', ['vault', 'local_file', 'etag',
                                         'tree_etag', 'desc'])
         etag, tree_etag = compute_hash_from_file(args.local_file)
         pargs = Post(args.vault, args.local_file, etag, tree_etag, desc)
-        return self.cmd_postarchive(pargs)
+        return self.cmd_post_archive(pargs)
 
     def cmd_fetch(self, args):
-        return self.cmd_fetch_joboutput(args)
+        return self.cmd_fetch_job_output(args)
 
     def cmd_create_vault(self, args):
         vault_name = parse_vault_name(args.vault)
@@ -206,7 +185,7 @@ class CASCMD(object):
     def cmd_list_vault(self, args):
         marker = args.marker
         limit = args.limit
-        res = self.api.list_vault(marker, limit)
+        res = self.api.list_vaults(marker, limit)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         marker = rjson['Marker']
@@ -227,20 +206,20 @@ class CASCMD(object):
                      vault['VaultName'],
                      vault['CreationDate'],
                      vault['NumberOfArchives'],
-                     self.byte_humanize(vault['SizeInBytes']),
+                     self._byte_humanize(vault['SizeInBytes']),
                      vault['LastInventoryDate'],
                      lname=max_name)
 
     def cmd_desc_vault(self, args):
         vault_name = parse_vault_name(args.vault)
-        res = self.api.desc_vault(vault_name)
+        res = self.api.describe_vault(vault_name)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         title = ('VaultName', 'VaultQCS', 'CreationDate', 'NumberOfArchives',
                  'SizeInBytes', 'LastInventoryDate')
         self.kv_print(rjson, title)
 
-    def cmd_postarchive(self, args):
+    def cmd_post_archive(self, args):
         vault_name = parse_vault_name(args.vault)
         filepath = args.local_file
         desc = args.desc or args.local_file[:128]
@@ -275,29 +254,29 @@ class CASCMD(object):
         if not os.path.isfile(args.local_file):
             sys.stderr.write("Error: file '%s' not existed!\n" % args.local_file)
             sys.exit(1)
-        start = self.parse_size(args.start)
-        end = self.parse_size(args.end)
+        start = self._parse_size(args.start)
+        end = self._parse_size(args.end)
         if end % (1024*1024) == 0: end -= 1
         size = end - start + 1
         etag, tree_etag = compute_hash_from_file(args.local_file, start, size)
         print "etag     :", etag
         print "tree_etag:", tree_etag
 
-    def cmd_init_multiupload(self, args):
+    def cmd_init_multipart_upload(self, args):
         vault_name = parse_vault_name(args.vault)
-        part_size = self.parse_size(args.part_size)
+        part_size = self._parse_size(args.part_size)
         desc = args.desc
-        res = self.api.create_multipart_upload(vault_name, part_size, desc)
+        res = self.api.initiate_multipart_upload(vault_name, part_size, desc)
         check_response(res)
         upload_id = res.getheader('x-cas-multipart-upload-id')
         print 'MultiPartUpload ID: %s' % upload_id
         return upload_id
 
-    def cmd_list_multiupload(self, args):
+    def cmd_list_multipart_upload(self, args):
         vault_name = parse_vault_name(args.vault)
         marker = args.marker
         limit = args.limit
-        res = self.api.list_multipart_upload(vault_name, marker, limit)
+        res = self.api.list_multipart_uploads(vault_name, marker, limit)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         marker = rjson['Marker']
@@ -317,15 +296,15 @@ class CASCMD(object):
                 print fmt.format(
                      upload['MultipartUploadId'],
                      upload['CreationDate'],
-                     self.byte_humanize(upload['PartSizeInBytes']),
+                     self._byte_humanize(upload['PartSizeInBytes']),
                      upload['ArchiveDescription'],
                      ldesc=maxdesc)
             print
 
-    def cmd_complete_multiupload(self, args):
+    def cmd_complete_multipart_upload(self, args):
         vault_name = parse_vault_name(args.vault)
         upload_id = args.upload_id
-        file_size = self.parse_size(args.size)
+        file_size = self._parse_size(args.size)
         tree_etag = args.tree_etag if args.tree_etag else ''
 
         res = self.api.complete_multipart_upload(
@@ -334,7 +313,7 @@ class CASCMD(object):
         archive_id = res.getheader('x-cas-archive-id')
         print 'Archive ID: %s' % archive_id
 
-    def cmd_abort_multiupload(self, args):
+    def cmd_abort_multipart_upload(self, args):
         vault_name = parse_vault_name(args.vault)
         res = self.api.abort_multipart_upload(vault_name, args.upload_id)
         check_response(res)
@@ -343,24 +322,24 @@ class CASCMD(object):
     def cmd_upload_part(self, args):
         vault_name = parse_vault_name(args.vault)
         upload_id = args.upload_id
-        filepath = args.local_file
-        start = self.parse_size(args.start)
+        file_path = args.local_file
+        start = self._parse_size(args.start)
 
-        if not filepath or not os.path.isfile(filepath):
-            sys.stderr.write("Error: file '%s' not existed!\n" % filepath)
+        if not file_path or not os.path.isfile(file_path):
+            sys.stderr.write("Error: file '%s' not existed!\n" % file_path)
             sys.exit(1)
 
-        totalsize = os.path.getsize(filepath)
-        if totalsize == 0:
+        total_size = os.path.getsize(file_path)
+        if total_size == 0:
             sys.stderr.write("empty file can not be uploaded!")
             sys.exit(1)
-        end = self.parse_size(args.end)
+        end = self._parse_size(args.end)
         size = long(end) - long(start) + 1
-        if start < 0 or start >= totalsize:
-            sys.stderr.write("start is invalid, legal value [0,%d] !\n" % (totalsize-1))
+        if start < 0 or start >= total_size:
+            sys.stderr.write("start is invalid, legal value [0,%d] !\n" % (total_size - 1))
             sys.exit(1)
-        if end < 0 or end >= totalsize:
-            sys.stderr.write("end is invalid, legal value [0, %d] !\n" (totalsize - 1))
+        if end < 0 or end >= total_size:
+            sys.stderr.write("end is invalid, legal value [0, %d] !\n" (total_size - 1))
             sys.exit(1)
         if start >= end:
             sys.stderr.write("start must less than end")
@@ -371,7 +350,7 @@ class CASCMD(object):
             tmpsum, tmptree = compute_hash_from_file(args.local_file, start, size)
             etag = etag or tmpsum
             tree_etag = tree_etag or tmptree
-        with open(filepath, 'rb') as file_reader:
+        with open(file_path, 'rb') as file_reader:
             prange = '%s-%s' % (start, end)
             file_reader.seek(long(start))
             res = self.api.post_multipart_from_reader(
@@ -385,7 +364,7 @@ class CASCMD(object):
         upload_id = args.upload_id
         marker = args.marker
         limit = args.limit
-        res = self.api.list_multipart(vault_name, upload_id, marker, limit)
+        res = self.api.list_parts(vault_name, upload_id, marker, limit)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         rjson['CreationDate'] = rjson['CreationDate']
@@ -407,8 +386,8 @@ class CASCMD(object):
         vault_name = parse_vault_name(args.vault)
         archive_id = args.archive_id
         desc = args.desc
-        start = self.parse_size(args.start)
-        size = self.parse_size(args.size)
+        start = self._parse_size(args.start)
+        size = self._parse_size(args.size)
         tier = args.tier
 
         jtype = 'archive-retrieval' if args.archive_id else 'inventory-retrieval'
@@ -418,16 +397,16 @@ class CASCMD(object):
                 start = size = None
 
         byte_range = None
-        if (start != None and size != None):
+        if start is not None and size is not None:
             byte_range = '%s-%s' % (start, start+size-1)
-        elif (start != None and size == None):
-            byte_range = '%s-' % (start)
-        elif (start == None and size != None):
+        elif start is not None and size is None:
+            byte_range = '%s-' % start
+        elif start is None and size is not None:
             byte_range = '0-%s' % (size-1)
         if byte_range:
             print 'Archive retrieval range: %s' % byte_range
 
-        res = self.api.create_job(
+        res = self.api.initiate_job(
             vault_name, jtype, archive_id, desc, byte_range, tier)
         check_response(res)
         job_id = res.getheader('x-cas-job-id')
@@ -441,7 +420,7 @@ class CASCMD(object):
     def cmd_desc_job(self, args):
         vault_name = parse_vault_name(args.vault)
         job_id = args.jobid
-        res = self.api.get_job_desc(vault_name, job_id)
+        res = self.api.describe_job(vault_name, job_id)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
 
@@ -453,14 +432,14 @@ class CASCMD(object):
                 'Tier', 'VaultQCS')
         self.kv_print(rjson, title)
 
-    def cmd_fetch_joboutput(self, args):
+    def cmd_fetch_job_output(self, args):
         vault_name = parse_vault_name(args.vault)
         job_id = args.jobid
         dst = args.local_file
-        start = self.parse_size(args.start)
-        size = self.parse_size(args.size)
+        start = self._parse_size(args.start)
+        size = self._parse_size(args.size)
 
-        res = self.api.get_job_desc(vault_name, args.jobid)
+        res = self.api.describe_job(vault_name, args.jobid)
         check_response(res)
         job = json.loads(res.read(), 'UTF8')
         status = job['StatusCode'].lower()
@@ -480,11 +459,11 @@ class CASCMD(object):
             brange = [0, int(job['InventorySizeInBytes']) - 1]
 
         output_range = None
-        if (start != None and size == None):
+        if start is not None and size is None:
             size = brange[1] - brange[0] - start + 1
-        elif (start == None and size != None):
+        elif start is None and size is not None:
             start = 0
-        if (start != None and size != None):
+        if start is not None and size is not None:
             output_range = 'bytes=%s-%s' % (start, start+size-1)
 
         if not args.force and os.path.exists(dst):
@@ -494,7 +473,7 @@ class CASCMD(object):
                 print 'Answer is no. Quit now.'
                 sys.exit(0)
 
-        res = self.api.fetch_job_output(vault_name, job_id, output_range)
+        res = self.api.get_job_output(vault_name, job_id, output_range)
         check_response(res)
 
         with open(dst, 'wb') as f:
@@ -506,8 +485,8 @@ class CASCMD(object):
                     total_read += len(data)
                     if jtype == 'inventory-retrieval':
                         continue
-                    totalsize = size or brange[1] - brange[0] + 1
-                    percent = total_read * 100 // totalsize
+                    total_size = size or brange[1] - brange[0] + 1
+                    percent = total_read * 100 // total_size
                     nbar = percent // 2
                     sys.stdout.write('\r')
                     msgbar = '[%s] %s%%' % ('='*nbar+'>'+' '*(50-nbar), percent)
@@ -522,7 +501,7 @@ class CASCMD(object):
         vault_name = parse_vault_name(args.vault)
         marker = args.marker
         limit = args.limit
-        res = self.api.list_job(vault_name, marker, limit)
+        res = self.api.list_jobs(vault_name, marker, limit)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         marker = rjson['Marker']
