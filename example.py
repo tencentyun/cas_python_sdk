@@ -102,12 +102,12 @@ if __name__ == "__main__":
 
     # 创建vault对象的两种方法：
     # 通过CasAPI创建vault，在成功创建vault以后，通过获取新vault的属性信息来实例化本地vault对象
-    cas_response = cas_api.create_vault(TEST_VAULT_NAME)
-    vault_props = cas_api.describe_vault(TEST_VAULT_NAME)
-    vault = Vault(cas_api, vault_props)
+    # cas_response = cas_api.create_vault(TEST_VAULT_NAME)
+    # vault_props = cas_api.describe_vault(TEST_VAULT_NAME)
+    # vault = Vault(cas_api, vault_props)
 
     # 也可以通过Vault类的create方法来直接创建得到vault对象
-    # vault = Vault.create(cas_api, TEST_VAULT_NAME)
+    vault = Vault.create(cas_api, TEST_VAULT_NAME)
     print "====== create vault, response:name :%s, qcs:%s\n" % (vault.name, vault.qcs)
 
     # Get a vault by its name, if vault already exists
@@ -121,8 +121,8 @@ if __name__ == "__main__":
     print "====== upload a normal archive,response archive id: \n", archive_id_0
 
     # 获取Archive列表，以job形式运行，检索结果输出到inventory.out
-#    inventory_job = vault.retrieve_inventory()
-#    inventory_job.download_to_file("inventory.out")
+    # inventory_job = vault.initiate_retrieve_inventory()
+    # inventory_job.download_to_file("inventory.out")
 
     # 下载Archive，以job形式运行，检索到archive下载到指定路径的文件中
     # 可以在对tier参数指定检索类型： Expedited: 1--5分钟（最大支持256MB的文件）；Standard: 3--5小时； Bulk：5--12小时
