@@ -35,7 +35,7 @@ class Vault(object):
     @classmethod
     def create(cls, cas_api, name):
         api = cas_api
-        response = api.create(name)
+        response = api.create_vault(name)
         response = api.describe_vault(name)
         return Vault(api, response)
 
