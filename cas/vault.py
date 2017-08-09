@@ -72,6 +72,8 @@ class Vault(object):
         byte_range_str = None
         if byte_range is not None:
             byte_range_str = '%d-%d' % byte_range
+        else:
+            byte_range_str = None
         response = self.api.initiate_job(self.name, 'archive-retrieval',
                                          archive_id=archive_id, desc=desc,
                                          byte_range=byte_range_str, tier=tier)

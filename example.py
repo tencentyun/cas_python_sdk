@@ -126,8 +126,8 @@ if __name__ == "__main__":
 
     # 下载Archive，以job形式运行，检索到archive下载到指定路径的文件中
     # 可以在对tier参数指定检索类型： Expedited: 1--5分钟（最大支持256MB的文件）；Standard: 3--5小时； Bulk：5--12小时
-#    archive_job = vault.retrieve_archive(archive_id_0,tier = "Expedited")
-#    archive_job.download_to_file("FilePath")
+    archive_job = vault.retrieve_archive(archive_id_0, tier="Expedited")
+    archive_job.download_to_file("test_archive.out")
 
     # 通过multipart任务分片上传大于100MB的文件
     uploader = vault.initiate_multipart_upload(TEST_LARGE_FILE)

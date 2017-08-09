@@ -136,7 +136,7 @@ class Job(object):
                 pos = 0
                 try:
                     response = self.vault.api.get_job_output(
-                        self.vault.name, self.id, orange=byte_range)
+                        self.vault.name, self.id, byte_range=byte_range)
                     while True:
                         data = response.read(chunk_size)
                         if not data:
@@ -197,7 +197,7 @@ class Job(object):
                 time.sleep(random.randint(256, 4096) / 1000)
                 try:
                     response = self.vault.api.get_job_output(
-                        self.vault.name, self.id, byte_range)
+                        self.vault.name, self.id, byte_range=byte_range)
 
                     generator = TreeHashGenerator()
                     offset = byte_range[0]
