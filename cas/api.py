@@ -127,8 +127,8 @@ class CasAPI(object):
         response = self.client.describe_job(vault_name, job_id)
         return CasAPI._create_response(response)
 
-    def get_job_output(self, vault_name, job_id):
-        response = self.client.get_job_output(vault_name, job_id)
+    def get_job_output(self, vault_name, job_id, orange=None):
+        response = self.client.get_job_output(vault_name, job_id, orange=orange)
         return CasAPI._create_response(response)
 
     def list_jobs(self, vault_name, completed=None, marker=None, limit=None, status_code=None):
