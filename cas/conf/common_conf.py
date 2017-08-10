@@ -22,7 +22,6 @@ MultipartUpload_MinimumPartSize = 16 * MEGABYTE     # 分块上传的最小分�
 Multipart_Upload_MaximumNumberOfParts = 10000       # 分块上传的最大分片数目
 
 Job_Default_Download_PartSize = 32 * MEGABYTE       # Archive取回时的默认分块大小
-Job_Default_Download_PartSize = MAX_PART_NUM        # 默认的分块数目
 
 
 
