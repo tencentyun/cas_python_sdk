@@ -49,7 +49,7 @@ def format_params(params=None):
             res += urllib.quote(p)
             # print p, tmp_params[p]
             v = len(tmp_params[p])
-            if len(v) != 0:
+            if v != 0:
                 res += '='
                 res += urllib.quote_plus(v, '~').replace('+', '%20')
             res += separator
