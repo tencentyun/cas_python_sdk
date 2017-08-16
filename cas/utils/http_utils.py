@@ -35,7 +35,7 @@ def safe_get_element(name, container):
 def format_params(params=None):
     if not params:
         return ''
-    tmp_params = {}
+    tmp_params = dict()
     for k, v in params.items():
         tmp_k = k.lower().strip()
         tmp_params[tmp_k] = str(v).lower()
@@ -48,8 +48,8 @@ def format_params(params=None):
         for p in check_params:
             res += urllib.quote(p)
             # print p, tmp_params[p]
-            v = len(tmp_params[p])
-            if v != 0:
+            v = tmp_params[p]
+            if len(v) != 0:
                 res += '='
                 res += urllib.quote_plus(v, '~').replace('+', '%20')
             res += separator
@@ -130,11 +130,10 @@ def create_auth(ak, sk, host, method, url, headers, params, expire):
 
     p_list = []
     if params:
-        p_list = [k.lower for k in params.keys()]
+        p_list = [k.lower() for k in params.keys()]
         p_list.sort()
     s_param = ';'.join(p_list)
     auth_content += 'q-url-param-list=%s&' % s_param
-
     auth_content += 'q-signature=%s' % sign
     return auth_content
 
