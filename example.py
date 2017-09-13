@@ -67,7 +67,7 @@ def gen_random_file(file_name, size):
 
 
 def Usage():
-    print "Usage: python ./example <host> <appid> <SecretID> <SecretKey> " \
+    print "Usage: python ./example <host> <appid> <SecretID> <SecretKey> \n" \
           "host：host stands for the domain name, not the host IP or host name. For example: cas.ap-chengdu.myqcloud.com"
 
 TEST_VAULT_NAME = "sdk_test_iainyu"
