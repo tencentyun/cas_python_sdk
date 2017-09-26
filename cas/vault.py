@@ -92,10 +92,14 @@ class Vault(object):
             return archive_id
         elif length > 0:
             with open_file(file_path=file_path) as content:
-                cas_response = self.api.upload_archive(self.name, content,
-                                                       etag=compute_etag_from_file(file_path),
-                                                       tree_tag=compute_tree_etag_from_file(file_path),
-                                                       size=content_length(content), desc=desc)
+                mmaped_file = mmap.mmap(content.fileno(),length=length, offset=0, access=mmap.ACCESS_READ)
+                try:
+                    cas_response = self.api.upload_archive(self.name, mmaped_file,
+                                                           etag=compute_etag_from_file(file_path),
+                                                           tree_tag=compute_tree_etag_from_file(file_path),
+                                                           size=content_length(content), desc=desc)
+                finally:
+                    mmaped_file.close()
                 return cas_response['x-cas-archive-id']
         else:
             raise ValueError('CAS does not support zero byte archive.')
