@@ -115,17 +115,19 @@ if __name__ == '__main__':
     job_id_prefix = ""
     args_len = len(sys.argv)
     index = 0
-    for arg in sys.argv:
-        if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix):
-            temp_index = 0
-            for prefix in list(sys.argv[index+1]):
-                if prefix != jobid_special_prefix:
-                    break
-                job_id_prefix = job_id_prefix + prefix
-                temp_index = temp_index + 1
-            sys.argv[index+1] = sys.argv[index+1][temp_index:]
-            break
-        index = index+1
+
+    if len(sys.argv) >= 4 and sys.argv[1] in ['fetch', 'desc_job', 'fetch_job_output']:
+        for arg in sys.argv:
+            if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix):
+                temp_index = 0
+                for prefix in list(sys.argv[index+1]):
+                    if prefix != jobid_special_prefix:
+                        break
+                    job_id_prefix = job_id_prefix + prefix
+                    temp_index = temp_index + 1
+                sys.argv[index+1] = sys.argv[index+1][temp_index:]
+                break
+            index = index+1
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     subcmd = parser.add_subparsers(dest='cmd', title='Supported actions', \
