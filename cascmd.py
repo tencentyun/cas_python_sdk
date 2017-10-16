@@ -123,7 +123,6 @@ if __name__ == '__main__':
                     break
                 job_id_prefix = job_id_prefix + prefix
                 temp_index = temp_index + 1
-            print temp_index
             sys.argv[index+1] = sys.argv[index+1][temp_index:]
             break
         index = index+1
