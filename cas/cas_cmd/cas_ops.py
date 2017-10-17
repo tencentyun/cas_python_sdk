@@ -501,7 +501,7 @@ class CASCMD(object):
         vault_name = parse_vault_name(args.vault)
         marker = args.marker
         limit = args.limit
-        res = self.api.list_jobs(vault_name, marker, limit)
+        res = self.api.list_jobs(vault_name = vault_name, marker = marker, limit = limit)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
         marker = rjson['Marker']
