@@ -48,8 +48,8 @@ Multipart Archive Operations:
 Job Operations:
     create_job             cas://vault [archive_id] [--desc desc] [--start start] [--size size]
     desc_job               cas://vault job_id
-    fetch_joboutput        cas://vault jobid local_file [--start start] [--size size] [-f]
-    list_job                cas://vault [--marker marker] [--limit limit]
+    fetch_job_output       cas://vault jobid local_file [--start start] [--size size] [-f]
+    list_job               cas://vault [--marker marker] [--limit limit]
 
 Other Operations:
     config                 --endpoint endpoint --appid appid --secretid secretid --secretkey secretkey
@@ -111,6 +111,24 @@ def add_userinfo_config(parser):
     parser.add_argument('--config-file', type=str, help='configuration file')
 
 if __name__ == '__main__':
+    jobid_special_prefix = "-"
+    job_id_prefix = ""
+    args_len = len(sys.argv)
+    index = 0
+
+    if len(sys.argv) >= 4 and sys.argv[1] in ['fetch', 'desc_job', 'fetch_job_output']:
+        for arg in sys.argv:
+            if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix):
+                temp_index = 0
+                for prefix in list(sys.argv[index+1]):
+                    if prefix != jobid_special_prefix:
+                        break
+                    job_id_prefix = job_id_prefix + prefix
+                    temp_index = temp_index + 1
+                sys.argv[index+1] = sys.argv[index+1][temp_index:]
+                break
+            index = index+1
+
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     subcmd = parser.add_subparsers(dest='cmd', title='Supported actions', \
             metavar='cmd', description=\
@@ -292,7 +310,7 @@ if __name__ == '__main__':
     pdj.add_argument('jobid', type=str, help='the id of createjob returned')
     add_userinfo_config(pdj)
 
-    cmd = 'fetch_joboutput'
+    cmd = 'fetch_job_output'
     pfjob = subcmd.add_parser(cmd, help='fetch job output')
     pfjob.add_argument('vault', type=str, help='format cas://vault-name')
     pfjob.add_argument('jobid', type=str, help='jobId createjob returned')
@@ -314,6 +332,9 @@ if __name__ == '__main__':
     add_userinfo_config(plj)
 
     args = parser.parse_args()
+
+    if len(job_id_prefix):
+        args.jobid = job_id_prefix + args.jobid
 
     if args.cmd == 'help':
         print_help(args)
