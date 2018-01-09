@@ -115,7 +115,6 @@ if __name__ == '__main__':
     job_id_prefix = ""
     args_len = len(sys.argv)
     index = 0
-
     if len(sys.argv) >= 4 and sys.argv[1] in ['fetch', 'desc_job', 'fetch_job_output']:
         for arg in sys.argv:
             if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix):
@@ -128,6 +127,23 @@ if __name__ == '__main__':
                 sys.argv[index+1] = sys.argv[index+1][temp_index:]
                 break
             index = index+1
+
+    archiveId_special_prefix = "-"
+    archiveId_prefix = ""
+    args_len = len(sys.argv)
+    index = 0
+    if len(sys.argv) >= 4 and sys.argv[1] in ["rm", "create_job", "delete_archive"]:
+        for arg in sys.argv:
+            if str(arg).startswith("cas://") and index < args_len - 1 and str(sys.argv[index+1]).startswith(archiveId_special_prefix):
+                tmp_index = 0
+                for prefix in list(sys.argv[index+1]):
+                    if prefix != archiveId_special_prefix:
+                        break
+                    archiveId_prefix = archiveId_prefix + prefix
+                    tmp_index = tmp_index + 1
+                sys.argv[index+1] = sys.argv[index+1][tmp_index:]
+                break
+            index = index + 1
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     subcmd = parser.add_subparsers(dest='cmd', title='Supported actions', \
@@ -333,8 +349,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if len(job_id_prefix):
+    if len(job_id_prefix) > 0:
         args.jobid = job_id_prefix + args.jobid
+
+    if len(archiveId_prefix) > 0:
+        args.archive_id = archiveId_prefix + args.archive_id
 
     if args.cmd == 'help':
         print_help(args)
