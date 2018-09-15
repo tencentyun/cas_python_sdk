@@ -10,7 +10,7 @@
 
 ### Setup through source, need sudo
 ```
-	$ python setup.py install
+$ python setup.py install
 ```
 
 ## Update Logs
