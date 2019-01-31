@@ -101,7 +101,7 @@ class CasAPI(object):
         return CasAPI._create_response(response)
 
     def list_all_parts(self, vault_name, upload_id):
-        response = self.client.list_all_parts(vault_name, upload_id)
+        response = self.list_parts(vault_name, upload_id)
         marker = response['Marker']
         while marker:
             tmp_response = self.list_parts(vault_name, upload_id, marker=marker)

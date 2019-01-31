@@ -43,10 +43,10 @@ Multipart Archive Operations:
     complete_multipart_upload   cas://vault upload_id file_size [file_tree_etag]
     abort_multipart_upload      cas://vault upload_id
     upload_part            cas://vault upload_id local_file start end [etag] [part_tree_etag]
-    list_part              cas://vault upload_id [--maker marker] [--limit limit]
+    list_part              cas://vault upload_id [--marker marker] [--limit limit]
 
 Job Operations:
-    create_job             cas://vault [archive_id] [--desc desc] [--start start] [--size size]
+    create_job             cas://vault [archive_id] [--desc desc] [--start start] [--size size] [--limit limit] [--marker marker] [--start_date start_date] [--end_date end_date]
     desc_job               cas://vault job_id
     fetch_job_output       cas://vault jobid local_file [--start start] [--size size] [-f]
     list_job               cas://vault [--marker marker] [--limit limit]
@@ -111,13 +111,14 @@ def add_userinfo_config(parser):
     parser.add_argument('--config-file', type=str, help='configuration file')
 
 if __name__ == '__main__':
+    param_prefix = "--"
     jobid_special_prefix = "-"
     job_id_prefix = ""
     args_len = len(sys.argv)
     index = 0
     if len(sys.argv) >= 4 and sys.argv[1] in ['fetch', 'desc_job', 'fetch_job_output']:
         for arg in sys.argv:
-            if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix):
+            if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix) and not str(sys.argv[index+1]).startswith(param_prefix) and str(sys.argv[index+1])!='-f':
                 temp_index = 0
                 for prefix in list(sys.argv[index+1]):
                     if prefix != jobid_special_prefix:
@@ -134,7 +135,7 @@ if __name__ == '__main__':
     index = 0
     if len(sys.argv) >= 4 and sys.argv[1] in ["rm", "create_job", "delete_archive"]:
         for arg in sys.argv:
-            if str(arg).startswith("cas://") and index < args_len - 1 and str(sys.argv[index+1]).startswith(archiveId_special_prefix):
+            if str(arg).startswith("cas://") and index < args_len - 1 and str(sys.argv[index+1]).startswith(archiveId_special_prefix) and not str(sys.argv[index+1]).startswith(param_prefix):
                 tmp_index = 0
                 for prefix in list(sys.argv[index+1]):
                     if prefix != archiveId_special_prefix:
@@ -207,6 +208,10 @@ if __name__ == '__main__':
     pcj.add_argument('--size', help=\
             'size to retrieve, default to be (totalsize - start)' )
     pcj.add_argument('--desc', type=str, help='description of the job')
+    pcj.add_argument('--limit', type=int, help='number of archives to be listed, default to be 10000')
+    pcj.add_argument('--marker', type=str, help='list start position marker')
+    pcj.add_argument('--start_date', type=str, help='the start date of archive created, format: YYYY-MM-DDThh:mm:ssZ')
+    pcj.add_argument('--end_date', type=str, help='the end date of archive created, format: YYYY-MM-DDThh:mm:ssZ')
     pcj.add_argument('--tier', type=str, help='The retrieval option to use for '\
             'the archive retrieval. Standard is the default value used.')
     add_userinfo_config(pcj)

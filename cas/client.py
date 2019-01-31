@@ -360,7 +360,7 @@ class CASClient(object):
             params['limit'] = limit
         return self.__http_request(method, url, params=params)
 
-    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
+    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None, marker=None, limit=None, start_date=None, end_date=None):
         """
             create job
             @param vault_name:
@@ -369,6 +369,10 @@ class CASClient(object):
             @param desc: retrieval job's description
             @param byte_range: the range of bytes to retrieve
             @param tier:  retrieval type : 'Expedited' , 'Standard', 'Bulk'
+            @param marker:  start position marker, effective when job_type is inventory-retrieval
+            @param limit:  count of archives, effective when job_type is inventory-retrieval
+            @param start_date:  start date of archive uploaded, effective when job_type is inventory-retrieval
+            @param end_date:  end date of archive uploaded, effective when job_type is inventory-retrieval
         """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'POST'
@@ -380,6 +384,16 @@ class CASClient(object):
                 body['RetrievalByteRange'] = byte_range
             if tier is not None:
                 body['Tier'] = tier
+        elif job_type == 'inventory-retrieval':
+            body['InventoryRetrievalParameters'] = dict()
+            if marker is not None:
+                body['InventoryRetrievalParameters']['Marker'] = marker
+            if limit is not None:
+                body['InventoryRetrievalParameters']['Limit'] = str(limit)
+            if start_date is not None:
+                body['InventoryRetrievalParameters']['StartDate'] = start_date
+            if end_date is not None:
+                body['InventoryRetrievalParameters']['EndDate'] = end_date
         if desc is not None:
             body['Description'] = desc
         body = json.dumps(body)

@@ -66,6 +66,22 @@ class CASCMD(object):
         fmt = u'{:>{lname}}: {}'
         for k in keys:
             print fmt.format(k, idict[k], lname=max_len)
+      
+    @classmethod
+    def kv_print_r(cls, idict, title=None):
+        keys = title or idict.keys()
+        max_len = max([len(t) for t in keys])
+        fmt = u'{:>{lname}}: {}'
+        for k in keys:
+            key_level = k.split('.')
+            value = idict
+            for key in key_level:
+                if isinstance(value, dict):
+                    value = value[key]
+                else:
+                    value = None
+                    break
+            print fmt.format(k, value, lname=max_len)
 
     def cmd_ls(self, args):
         return self.cmd_list_vault(args)
@@ -389,12 +405,26 @@ class CASCMD(object):
         start = self._parse_size(args.start)
         size = self._parse_size(args.size)
         tier = args.tier
+        marker = args.marker
+        limit = args.limit
+        start_date = args.start_date
+        end_date = args.end_date
 
         jtype = 'archive-retrieval' if args.archive_id else 'inventory-retrieval'
         if jtype == 'inventory-retrieval':
             if start or size:
                 print 'Tip: Inventory-retrieval does NOT support range, ignored'
                 start = size = None
+            if marker and (start_date or end_date):
+                print 'Tip: Inventory-retrieval does NOT support start_date and end_date when marker is set, ignored'
+                start_date = end_date = None
+        else:
+            if marker or limit:
+                print 'Tip: Archive-retrieval does NOT support marker and limit, ignored'
+                marker = limit = None
+            if start_date or end_date:
+                print 'Tip: Archive-retrieval does NOT support start_date and end_date, ignored'
+                start_date = end_date = None
 
         byte_range = None
         if start is not None and size is not None:
@@ -407,7 +437,7 @@ class CASCMD(object):
             print 'Archive retrieval range: %s' % byte_range
 
         res = self.api.initiate_job(
-            vault_name, jtype, archive_id, desc, byte_range, tier)
+            vault_name, jtype, archive_id, desc, byte_range, tier, marker=marker, limit=limit, start_date=start_date, end_date=end_date)
         check_response(res)
         job_id = res.getheader('x-cas-job-id')
         print '%s job created, job ID: %s' % (jtype, job_id)
@@ -423,14 +453,21 @@ class CASCMD(object):
         res = self.api.describe_job(vault_name, job_id)
         check_response(res)
         rjson = json.loads(res.read(), 'UTF8')
-
         title = ('JobId', 'Action', 'StatusCode', 'StatusMessage',
                 'ArchiveId', 'ArchiveSizeInBytes',
                 'SHA256TreeHash', 'ArchiveSHA256TreeHash',
                 'RetrievalByteRange', 'Completed', 'CompletionDate',
                 'CreationDate', 'InventorySizeInBytes', 'JobDescription',
                 'Tier', 'VaultQCS')
-        self.kv_print(rjson, title)
+        if rjson['Action'] == 'InventoryRetrieval':
+            title = ('JobId', 'Action', 'StatusCode', 'StatusMessage',
+                'Completed', 'CompletionDate',
+                'CreationDate', 'InventorySizeInBytes', 'JobDescription',
+                'VaultQCS', 'InventoryRetrievalParameters.Limit',
+                'InventoryRetrievalParameters.Format', 'InventoryRetrievalParameters.Marker')
+            if 'InventoryRetrievalParameters' in rjson and rjson['InventoryRetrievalParameters']['Limit'] == 0:
+                rjson['InventoryRetrievalParameters']['Limit'] = None
+        self.kv_print_r(rjson, title)
 
     def cmd_fetch_job_output(self, args):
         vault_name = parse_vault_name(args.vault)
@@ -496,6 +533,8 @@ class CASCMD(object):
                     break
         sys.stdout.write('\n')
         print 'Download job output success'
+        if jtype == 'inventory-retrieval' and job['InventoryRetrievalParameters']['Marker']:
+            print 'NOTICE: Want more archive list? Create a new job with  --marker %s'%(job['InventoryRetrievalParameters']['Marker'])
 
     def cmd_list_job(self, args):
         vault_name = parse_vault_name(args.vault)

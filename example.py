@@ -135,8 +135,8 @@ if __name__ == "__main__":
     archive_id_1 = uploader.start()
 
     # 如果上述multipart任务上传失败，则可以使用下列方法进行断点续传，
-    # 其中recover_uploader方法的参数，是待续传的uploader对象的ID
-#    uploader = vault.recover_uploader(uploader.id)
+    # 其中get_multipart_uploader方法的参数，是待续传的uploader对象的ID
+#    uploader = vault.get_multipart_uploader(uploader.id)
 #    uploader.resume(TEST_LARGE_FILE)
 
     # 删除指定的档案
