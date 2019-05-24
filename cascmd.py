@@ -30,7 +30,7 @@ Vault Operations:
     desc_vault             cas://vault
 
 Archive Operations:
-    upload_id              cas://vault local_file [-p PART_SIZE] [--upload_id upload_id] [--desc desc]
+    upload                 cas://vault local_file [-p PART_SIZE] [--upload_id upload_id] [--desc desc]
     delete_archive         cas://vault archive_id
 
 Etag Operations:
@@ -47,7 +47,7 @@ Multipart Archive Operations:
 
 Job Operations:
     create_job             cas://vault [archive_id] [--desc desc] [--start start] [--size size] [--limit limit] [--marker marker] [--start_date start_date] [--end_date end_date]
-    desc_job               cas://vault job_id
+    desc_job               cas://vault jobid
     fetch_job_output       cas://vault jobid local_file [--start start] [--size size] [-f]
     list_job               cas://vault [--marker marker] [--limit limit]
 
@@ -111,40 +111,29 @@ def add_userinfo_config(parser):
     parser.add_argument('--config-file', type=str, help='configuration file')
 
 if __name__ == '__main__':
-    param_prefix = "--"
-    jobid_special_prefix = "-"
-    job_id_prefix = ""
-    args_len = len(sys.argv)
-    index = 0
-    if len(sys.argv) >= 4 and sys.argv[1] in ['fetch', 'desc_job', 'fetch_job_output']:
-        for arg in sys.argv:
-            if str(arg).startswith("cas://") and index < args_len-1 and str(sys.argv[index+1]).startswith(jobid_special_prefix) and not str(sys.argv[index+1]).startswith(param_prefix) and str(sys.argv[index+1])!='-f':
-                temp_index = 0
-                for prefix in list(sys.argv[index+1]):
-                    if prefix != jobid_special_prefix:
-                        break
-                    job_id_prefix = job_id_prefix + prefix
-                    temp_index = temp_index + 1
-                sys.argv[index+1] = sys.argv[index+1][temp_index:]
-                break
-            index = index+1
-
-    archiveId_special_prefix = "-"
+    value_special_prefix = "-"
+    jobId_prefix = ""
     archiveId_prefix = ""
-    args_len = len(sys.argv)
-    index = 0
-    if len(sys.argv) >= 4 and sys.argv[1] in ["rm", "create_job", "delete_archive"]:
-        for arg in sys.argv:
-            if str(arg).startswith("cas://") and index < args_len - 1 and str(sys.argv[index+1]).startswith(archiveId_special_prefix) and not str(sys.argv[index+1]).startswith(param_prefix):
-                tmp_index = 0
-                for prefix in list(sys.argv[index+1]):
-                    if prefix != archiveId_special_prefix:
-                        break
-                    archiveId_prefix = archiveId_prefix + prefix
-                    tmp_index = tmp_index + 1
-                sys.argv[index+1] = sys.argv[index+1][tmp_index:]
-                break
-            index = index + 1
+    uploadId_prefix = ""
+
+    if len(sys.argv) >= 4:
+        command  = str(sys.argv[1])
+        for index in range(2, len(sys.argv)-1):
+            param = str(sys.argv[index])
+            value = str(sys.argv[index+1])
+            if param.startswith("cas://") and value.startswith(value_special_prefix) and len(value) > 48:
+                sys.argv[index+1] = value.lstrip(value_special_prefix)
+                if command in ['fetch_job_output', 'desc_job', 'fetch']:
+                    jobId_prefix = ''.join([value_special_prefix]*(len(value)-len(sys.argv[index+1])))
+                elif command in ['rm', 'create_job', 'delete_archive']:
+                    archiveId_prefix = ''.join([value_special_prefix]*(len(value)-len(sys.argv[index+1])))
+                elif command in ['complete_multipart_upload', 'abort_multipart_upload', 'upload_part', 'list_part']:
+                    uploadId_prefix = ''.join([value_special_prefix]*(len(value)-len(sys.argv[index+1])))
+                else:
+                    sys.argv[index+1] = value
+            elif param == '--upload_id' and value.startswith(value_special_prefix) and len(value) > 48:
+                sys.argv[index+1] = value.lstrip(value_special_prefix)
+                uploadId_prefix = ''.join([value_special_prefix]*(len(value)-len(sys.argv[index+1])))
 
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     subcmd = parser.add_subparsers(dest='cmd', title='Supported actions', \
@@ -354,11 +343,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if len(job_id_prefix) > 0:
-        args.jobid = job_id_prefix + args.jobid
-
+    if len(jobId_prefix) > 0:
+        args.jobid = jobId_prefix + args.jobid
     if len(archiveId_prefix) > 0:
         args.archive_id = archiveId_prefix + args.archive_id
+    if len(uploadId_prefix) > 0:
+        args.upload_id = uploadId_prefix + args.upload_id
 
     if args.cmd == 'help':
         print_help(args)
