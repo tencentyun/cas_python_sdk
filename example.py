@@ -96,10 +96,10 @@ if __name__ == "__main__":
     # 获取当前用户的所有vault列表的两种方法：
     # 获取当前用户的所有vault列表，返回CASResponse结构
     vault_list = cas_api.list_all_vaults()
-    print "====== vault_list: \n" % vault_list
+    print "====== vault_list: \n" , vault_list
     # 获取当前用户的所有vault列表，返回python列表结构，列表中的每个元素为vault对象
     vault_list = Vault.list_all_vaults(cas_api)
-    print "====== vault list: \n" % vault_list
+    print "====== vault list: \n" , vault_list
 
     # 创建vault对象的两种方法：
     # 通过CasAPI创建vault，在成功创建vault以后，通过获取新vault的属性信息来实例化本地vault对象
