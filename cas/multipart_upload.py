@@ -173,7 +173,7 @@ class MultipartUpload(object):
             response = self.vault.api.complete_multipart_upload(
                 self.vault.name, self.id, self.size_total,
                 self.tree_hash)
-            sys.stdout.write('====== debug: send complete part res: %s\n' % response)
+            log.debug('debug: send complete part res: %s\n' % response)
             log.info('Upload %s finish.' % (self.id))
             return response.get('x-cas-archive-id')
         except UploadArchiveError as e:

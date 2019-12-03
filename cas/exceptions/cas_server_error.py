@@ -1,6 +1,9 @@
 import json
 import sys
+import logging
 from httplib import HTTPException
+
+log = logging.getLogger(__name__)
 
 
 class CASServerError(Exception):
@@ -13,14 +16,14 @@ class CASServerError(Exception):
 
         self.request_id = headers.get('x-cas-requestid')
         self.status = response.status
-        sys.stdout.write('====== debug: error: receive status: %s\n' % response.status)
-        sys.stdout.write('====== debug: error: receive headers: %s\n' % headers)
+        log.debug('debug: error: receive status: %s\n' % response.status)
+        log.debug('debug: error: receive headers: %s\n' % headers)
 
         content = ''
         try:
             content = response.read()
             body = json.loads(content)
-            sys.stdout.write('====== debug: error: receive body: %s\n' % body)
+            log.debug('debug: error: receive body: %s\n' % body)
             self.code = body.get('code')
             self.type = body.get('type')
             self.message = body.get('message')

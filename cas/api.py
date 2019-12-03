@@ -110,17 +110,23 @@ class CasAPI(object):
         response['Marker'] = None
         return response
 
-    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None):
+    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None, marker=None, limit=None, start_date=None, end_date=None, bucket_endpoint=None, object_name=None):
         """
         :param vault_name: 任务所属的vault
-        :param job_type: 任务类型：archive-retrieval , inventory_retrieval
-        :param archive_id: 当任务类型为archive-retrieval, 此项为要检索的档案ID
+        :param job_type: 任务类型：archive-retrieval , inventory-retrieval , push-to-cos
+        :param archive_id: 当任务类型为archive-retrieval 或者 push-to-cos, 此项为要检索的档案ID
         :param desc: 任务的描述
         :param byte_range:  档案检索操作的字节范围，未指定时，默认检索整个档案。 如果指定了字节范围，则字节范围必须以兆字节对齐
         :param tier: 档案检索的类型，可指定枚举字符串：'Expedited', 'Standard', 'Bulk'    默认为：'Standard'。 注意：对inventory_retrieval任务指定该项无效
+        :param marker:  start position marker, effective when job_type is inventory-retrieval
+        :param limit:  count of archives, effective when job_type is inventory-retrieval
+        :param start_date:  start date of archive uploaded, effective when job_type is inventory-retrieval
+        :param end_date:  end date of archive uploaded, effective when job_type is inventory-retrieval
+        :param bucket_endpoint: 推送到的cos存储通的域名，对push-to-cos任务有效
+        :param object_name: 推送到cos时的对象名字，对push-to-cos任务有效
         :return:
         """
-        response = self.client.initiate_job(vault_name, job_type, archive_id, desc, byte_range, tier)
+        response = self.client.initiate_job(vault_name, job_type, archive_id, desc, byte_range, tier, marker=marker, limit=limit, start_date=start_date, end_date=end_date, bucket_endpoint=bucket_endpoint, object_name=object_name)
         return CasAPI._create_response(response)
 
     def describe_job(self, vault_name, job_id):

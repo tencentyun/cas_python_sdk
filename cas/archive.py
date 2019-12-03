@@ -15,3 +15,6 @@ class Archive:
 
     def get_vault(self):
         return self.vault
+
+    def push_to_cos(self, bucket_endpoint, object_name, byte_range=None, desc=None, tier=None):
+    	return self.vault.push_archive_to_cos(self.archive_id, bucket_endpoint, object_name, byte_range=byte_range, desc=desc, tier=tier)

@@ -129,6 +129,10 @@ class Vault(object):
         cas_response = self.api.describe_job(self.name, job_id)
         return Job(self, cas_response)
 
+    def push_archive_to_cos(self, archive_id, bucket_endpoint, object_name, desc=None, byte_range=None, tier=None):
+        response = self.api.initiate_job(self.name, 'push-to-cos', archive_id=archive_id, byte_range=byte_range, desc=desc, tier=tier, bucket_endpoint=bucket_endpoint, object_name=object_name)
+        return response['x-cas-job-id']
+
 
 def parse_vault_name(path):
     if not path.lower().startswith(CAS_PREFIX):

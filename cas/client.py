@@ -6,10 +6,13 @@ import socket
 import string
 import sys
 import time
+import logging
 
 from cas.conf import client_conf
 from cas.utils import http_utils
 from cas.utils import file_utils
+
+log = logging.getLogger(__name__)
 
 
 class CASClient(object):
@@ -316,7 +319,7 @@ class CASClient(object):
         # place range here !
         headers['Content-Range'] = 'bytes ' + prange + '/*'
 
-        sys.stdout.write('====== debug: post part from content, url: %s, range, %s\n' % (url, prange))
+        log.debug('debug: post part from content, url: %s, range, %s\n' % (url, prange))
 
         if len(content) < 512*1024*1024:
             return self.__http_request(method, url, headers, content)
@@ -343,7 +346,7 @@ class CASClient(object):
         # place range here !
         headers['Content-Range'] = 'bytes ' + prange + '/*'
 
-        sys.stdout.write('====== debug: post part from reader, url: %s, range, %s\n' % (url, prange))
+        log.debug('debug: post part from reader, url: %s, range, %s\n' % (url, prange))
 
         return self.__http_reader_request(method, url, headers, reader, content_length)
 
@@ -360,11 +363,11 @@ class CASClient(object):
             params['limit'] = limit
         return self.__http_request(method, url, params=params)
 
-    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None, marker=None, limit=None, start_date=None, end_date=None):
+    def initiate_job(self, vault_name, job_type, archive_id=None, desc=None, byte_range=None, tier=None, marker=None, limit=None, start_date=None, end_date=None, bucket_endpoint=None, object_name=None):
         """
             create job
             @param vault_name:
-            @param job_type: required, string, can only be archive-retrieval or inventory-retrieval
+            @param job_type: required, string, can only be archive-retrieval or inventory-retrieval or push-to-cos
             @param archive_id: not required, string, when job_type is archive-retrieval , archive_id must be set
             @param desc: retrieval job's description
             @param byte_range: the range of bytes to retrieve
@@ -373,6 +376,8 @@ class CASClient(object):
             @param limit:  count of archives, effective when job_type is inventory-retrieval
             @param start_date:  start date of archive uploaded, effective when job_type is inventory-retrieval
             @param end_date:  end date of archive uploaded, effective when job_type is inventory-retrieval
+            @param bucket_endpoint:  the bucket endpoint, effective when job_type is push-to-cos
+            @param object_name:  the object id, effective when job_type is push-to-cos
         """
         url = '/%s/vaults/%s/jobs' % (self.appid, vault_name)
         method = 'POST'
@@ -380,6 +385,14 @@ class CASClient(object):
         body['Type'] = job_type
         if job_type == 'archive-retrieval':
             body['ArchiveId'] = archive_id
+            if byte_range is not None:
+                body['RetrievalByteRange'] = byte_range
+            if tier is not None:
+                body['Tier'] = tier
+        elif job_type == 'push-to-cos':
+            body['ArchiveId'] = archive_id
+            body['Bucket'] = bucket_endpoint
+            body['Object'] = object_name
             if byte_range is not None:
                 body['RetrievalByteRange'] = byte_range
             if tier is not None:
