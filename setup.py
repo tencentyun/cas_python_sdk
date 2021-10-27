@@ -32,7 +32,7 @@ def long_description():
 
 setup(
     name='cassdk',
-    version='1.0.4',
+    version='1.0.5',
     description='Python SDK and cmd tools for Tencent CAS (Cloud Archive Service)',
     author='Tencent CAS',
     url='https://www.qcloud.com/',
