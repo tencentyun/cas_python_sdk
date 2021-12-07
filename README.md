@@ -20,3 +20,4 @@ $ python setup.py install
 * 1.0.3 command create_job support param --marker --limit; compatiable archive_id starting with '-'
 * 1.0.4 compatiable archive_id starting with '--' also job_id, upload_id
 * 1.0.5 support push-to-cos job
+* 1.0.6 fix bug: close threadpool when finished
