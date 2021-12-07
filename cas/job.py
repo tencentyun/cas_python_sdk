@@ -250,6 +250,7 @@ class Job(object):
             pool.map(download_part,
                      [byte_range for byte_range, tag in self.parts.items()
                       if tag is None])
+            pool.close()
 
             size = self.size_completed
             size_total = range_size(self._parse_job_range())

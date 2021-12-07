@@ -166,6 +166,7 @@ class MultipartUpload(object):
             pool.map(upload_part, [byte_range
                                    for byte_range, tag in self.parts.items()
                                    if tag is None])
+            pool.close()
 
             size = self.size_completed
             if size != self.size_total:
