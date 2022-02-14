@@ -465,11 +465,11 @@ class CASClient(object):
         return self.__http_request(method, url)
 
     def set_vault_access_policy(self,vault_name,policy):
-        url = '/%s/vault/%s/access-policy' % (self.appid, vault_name)
+        url = '/%s/vaults/%s/access-policy' % (self.appid, vault_name)
         method = "PUT"
         body = dict()
-        body['Policy'] = policy
-        body = json.dump(body)
+        body['policy'] = policy
+        body = json.dumps(body)
         return self.__http_request(method, url, body=body)
 
     def delete_vault_access_policy(self,vault_name):
