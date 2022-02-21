@@ -66,7 +66,7 @@ class CASCMD(object):
         fmt = u'{:>{lname}}: {}'
         for k in keys:
             print fmt.format(k, idict[k], lname=max_len)
-      
+
     @classmethod
     def kv_print_r(cls, idict, title=None):
         keys = title or idict.keys()
@@ -141,7 +141,7 @@ class CASCMD(object):
                 plist = rjson['Parts']
                 partsize = rjson['PartSizeInBytes']
                 nparts = size // partsize
-                if size % partsize: 
+                if size % partsize:
                     nparts += 1
                 # 这里有个问题, 如果已上传的不是连续的, 那么就会漏掉中间的分块
                 if plist:
@@ -444,7 +444,7 @@ class CASCMD(object):
         print 'Use\n\n    cascmd.py fetch %s %s <local_file>\n\nto check job ' \
               'progress and download the data when job finished' % \
               (args.vault, job_id)
-        print 'NOTICE: Jobs usually take about 4 HOURS to complete.'
+        #print 'NOTICE: Jobs usually take about 4 HOURS to complete.'
         return job_id
 
     def cmd_desc_job(self, args):
